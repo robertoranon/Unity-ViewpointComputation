@@ -4,7 +4,6 @@
  For more info on the project, contact Roberto Ranon at roberto.ranon@uniud.it.
  
  Copyright (c) 2013- University of Udine, Italy - http://hcilab.uniud.it
- Also see acknowledgements in readme.txt
  -----------------------------------------------------------------------------
 
  CLProperty.cs: file defining classes for visual properties and their aggregation
@@ -462,14 +461,12 @@ public class CLOcclusionProperty : CLGroundProperty
 	/// <param name="_targets">property targets</param>
 	/// <param name="_satXPoints">x points of the satisfaction linear spline</param>
 	/// <param name="_satYPoints">y points of the satisfaction linear spline</param>
-	public CLOcclusionProperty (string _name, List<CLTarget> _targets, List<float> _satXPoints, List<float> _satYPoints, bool _frontBack = true, bool _rayCastToBoundingBox = true) :
+	public CLOcclusionProperty (string _name, List<CLTarget> _targets, List<float> _satXPoints, List<float> _satYPoints, bool _frontBack = true) :
 		base ( _name, _targets )
 	{
 		satFunction = new CLLinearSplineSatFunction (_satXPoints, _satYPoints);
 		cost = 20.0f;
 		frontBack = _frontBack;
-		rayCastToBoundingBox = _rayCastToBoundingBox;
-		
 	}
 
 	public CLOcclusionProperty (string _name) : base (_name, new List<CLTarget> ()){}
@@ -480,12 +477,11 @@ public class CLOcclusionProperty : CLGroundProperty
 	/// <param name="_name">property name</param>
 	/// <param name="_targets">property targets</param>
 	/// <param name="_satFunction">sat function</param>
-	public CLOcclusionProperty (string _name, List<CLTarget> _targets, CLSatFunction _satFunction, bool _frontBack = true, bool _rayCastToBoundingBox = true) :
+	public CLOcclusionProperty (string _name, List<CLTarget> _targets, CLSatFunction _satFunction, bool _frontBack = true) :
 	base ( _name, _targets, _satFunction )
 	{
 		cost = 20.0f;
 		frontBack = _frontBack;
-		rayCastToBoundingBox = _rayCastToBoundingBox;
 
 	}
 	
@@ -497,7 +493,7 @@ public class CLOcclusionProperty : CLGroundProperty
 	/// <param name="camera">Camera.</param>
 	public override float ComputeValue (CLCameraMan camera)
 	{
-		return Mathf.Min (targets [0].ComputeOcclusion (camera, frontBack,rayCastToBoundingBox), satFunction.domain.y);
+		return Mathf.Min (targets [0].ComputeOcclusion (camera, frontBack), satFunction.domain.y);
 	}
         
 

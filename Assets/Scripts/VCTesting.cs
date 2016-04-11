@@ -135,7 +135,7 @@ public class VCTesting : MonoBehaviour
 				// occlusion property with 4.0 weight 
 				List<float> occlFuncCtrlX = new List<float> { 0.0f, 0.5f, 0.6f, 1.0f };
 				List<float> occlFuncCtrlY = new List<float> { 1.0f, 0.7f, 0.1f, 0.0f };
-				CLOcclusionProperty occlP = new CLOcclusionProperty (targetobj.name + " occlusion", properties_targets, occlFuncCtrlX, occlFuncCtrlY, false, false);
+				CLOcclusionProperty occlP = new CLOcclusionProperty (targetobj.name + " occlusion", properties_targets, occlFuncCtrlX, occlFuncCtrlY, false);
 				weights.Add (4.0f);
 				properties.Add (occlP);
 

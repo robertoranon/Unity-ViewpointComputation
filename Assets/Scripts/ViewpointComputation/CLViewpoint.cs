@@ -4,7 +4,6 @@ This source file is part of ViewpointComputationLib (a viewpoint computation lib
 For more info on the project, contact Roberto Ranon at roberto.ranon@uniud.it.
 
 Copyright (c) 2013- University of Udine, Italy - http://hcilab.uniud.it
-Also see acknowledgements in readme.txt
 -----------------------------------------------------------------------------
 
  CLViewpoint.cs: file defining classes to represent a viewpoint, i.e. a solution of a VC problem

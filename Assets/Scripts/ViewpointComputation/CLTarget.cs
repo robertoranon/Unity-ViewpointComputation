@@ -4,7 +4,6 @@ This source file is part of ViewpointComputationLib (a viewpoint computation lib
 For more info on the project, contact Roberto Ranon at roberto.ranon@uniud.it.
 
 Copyright (c) 2013- University of Udine, Italy - http://hcilab.uniud.it
-Also see acknowledgements in readme.txt
 -----------------------------------------------------------------------------
 
  CLTarget.cs: file defining classes for representing targets in a VC problem and to compute their 
@@ -142,11 +141,6 @@ public class CLTarget
 	private int layerMask;
 
 	/// <summary>
-	/// The mesh vertices, used for visibility checking
-	/// </summary>
-	private List<Vector3> meshVertices;
-
-	/// <summary>
 	/// List of points to be used for visibility checking
 	/// </summary>
 	private List<Vector3> visibilityPoints;
@@ -181,14 +175,6 @@ public class CLTarget
 		nRays = _nRays;
 		useRendererForBoundingBoxes = _useRendererForBoundingBoxes;
 		name = sceneObj.name;
-		// builds list of mesh vertices, to be used if needed for ray casting
-		meshVertices = new List<Vector3>();
-		foreach( GameObject go in renderables)
-		{
-			MeshFilter mf = go.GetComponent<MeshFilter>();
-			meshVertices.AddRange (mf.sharedMesh.vertices);
-
-		}
 		// builds list of points to be used for ray casting
 		visibilityPoints = new List<Vector3>(nRays);
 	}
@@ -334,31 +320,17 @@ public class CLTarget
 	/// Computes how much the target is occluded by other objects by shooting N rays randomly inside the AABB of the target.
 	/// Current strategy is 1 ray to the center plus nRays-1 random rays
 	/// </summary>  
-	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = true, bool rayCastToBoundingBox = true)
+	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = true)
 	{
 
 		float result = 0.0f;
 		RaycastHit hitFront;
 		RaycastHit hitBack;
 		List<Vector3> points = new List<Vector3> ();
-		int n;
-		if (rayCastToBoundingBox) {  // normal situation
-			n = Math.Max (1, Math.Min (8, (int)Math.Floor (nRays / screenArea)));  
-			for (int i = 0; i<( n - 1); i++) {
+		int n = nRays;  
+		for (int i = 0; i<( n - 1); i++) {
 				points.Add (visibilityPoints[i]);
 			}
-		} else {  // ray cast to random vertices
-			n = nRays;
-			for (int i=0; i<n; i++)
-			{
-				// select random vertex
-				Vector3 randomVertex = meshVertices[ UnityEngine.Random.Range(0, meshVertices.Count )];
-				Vector3 worldRandomVertex = this.gameObjectRef.transform.TransformPoint( randomVertex );
-				points.Add ( new Vector3 ( worldRandomVertex.x, worldRandomVertex.y, worldRandomVertex.z ));
-
-			}
-
-		}
 
 		// now raycast from camera to each point
 		foreach ( Vector3 p in points )
