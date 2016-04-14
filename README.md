@@ -4,7 +4,7 @@ Unity-ViewpointComputation is a library for computing the virtual camera paramet
 
 The library has been tested with Unity 5.3, but should work also with older versions (and even with 5.4 beta).
 
-Examples:
+Example usages:
 
 - compute a virtual camera that allows the user to see a number of targets
 - create classic compositions, such as over-the-shoulder shots, internal shots, and so on
@@ -21,7 +21,7 @@ The library uses a stochastic solver based on Particle Swarm Optimization to fin
 visibility.
 - Add Scripts/VCTesting.cs to a camera in the scene, and modify it to your needs.
 
-You are free to use the library in any research or commercial project, or any use allowed by the Apache License. If you use the library in any scientific publication, please cite:
+You are free to use the library in research or commercial projects, or any use allowed by the Apache License. If you use the library in any scientific publication, please cite:
 
 Ranon R., Urli T.,	Improving the Efficiency of Viewpoint Composition, IEEE Transactions on Visualization and Computer Graphics, 20(5), May 2014, pp. 795-807.
 
