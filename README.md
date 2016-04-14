@@ -27,7 +27,7 @@ Ranon R., Urli T.,	Improving the Efficiency of Viewpoint Composition, IEEE Trans
 
 ## Example Scene
 
-The example scene represents an office with four characters, and is provided only as a way to showcase the library. In the scene, the "Main Camera" object has a VCTesting script component which allows one to define the targets that we want to frame. In the example scene, the predefined targets are "BookShelf", "Matteo", and "Chair09". Code in VCTesting.cs then defines, for each target, a number of visual properties that should be satisfied, namely desired values for size, visibility, and angle with the camera.
+An example scene (as a .unitypackage) is provided [here](https://www.dropbox.com/s/u31imdepcbb9fqw/Office-VC.unitypackage?dl=0) and represents an office with four characters. After importing the package into your project, open "VCDemoScene". In the scene, the "Main Camera" object has a VCTesting script component which allows one to define the targets that we want to frame. In the example scene, the predefined targets are "BookShelf", "Matteo", and "Chair09". Code in VCTesting.cs then defines, for each target, a number of visual properties that should be satisfied, namely desired values for size, visibility, and angle with the camera.
 
 After playing the scene, press "p" to compute and show a camera that satisifies these properties, and "e" to evaluate how much the current camera satisfies the same properties (results are shown in the console). As you can see, each time you press "p" a different camera is generated. This is due to the stochastic nature of the solving process. 
 
