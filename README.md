@@ -9,6 +9,7 @@ Example usages:
 - compute a virtual camera that allows the user to see a number of targets
 - create classic compositions, such as over-the-shoulder shots, internal shots, and so on
 - evaluate how much a unity camera satisfies a set of visual properties, e.g. evaluate if certain objects are visible by the camera or how big they are on screen.
+- improve Unity Editor "Frame Selected" command with visibility-awareness, as described [here](http://hcilab.uniud.it/images/stories/publications/2015-06/VisibilityFraming_WICED2015.pdf).
 
 The library can compute a solution camera in any chosen amount of time (e.g., 10 milliseconds). For complex problems, however, more time will in general translate into better solutions. It is also possible to split the computation between a few successive frames.
 
