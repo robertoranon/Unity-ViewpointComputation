@@ -6,6 +6,7 @@ Examples:
 
 - compute a virtual camera that allows the user to see a number of targets
 - create classic compositions, such as over-the-shoulder shots, internal shots, and so on
+- evaluate how much a unity camera satisfies a set of visual properties, e.g. evaluate if certain objects are visible by the camera or how big they are on screen.
 
 The library can compute a solution camera in any chosen amount of time (e.g., 10 milliseconds). For complex problems, however, more time will in general translate into better solutions. It is also possible to split the computation between a few successive frames.
 
@@ -24,7 +25,9 @@ Ranon R., Urli T.,	Improving the Efficiency of Viewpoint Composition, IEEE Trans
 
 ## Example Scene
 
-The example scene represents a office with four characters, and is provided only as a way to showcase the library. In the scene, the "Main Camera" object has a VCTesting script component which allows one to define the targets that we want to frame.
+The example scene represents an office with four characters, and is provided only as a way to showcase the library. In the scene, the "Main Camera" object has a VCTesting script component which allows one to define the targets that we want to frame. In the example scene, the predefined targets are "BookShelf", "Matteo", and "Chair09". Code in VCTesting.cs then defines, for each target, a number of visual properties that should be satisfied, namely desired values for size, visibility, and angle with the camera.
+
+After playing the scene, press "p" to compute and show a camera that satisifies these properties, and "e" to evaluate how much the current camera satisfies the same properties (results are shown in the console). As you can see, each time you press "p" a different camera is generated. This is due to the stochastic nature of the solving process. 
 
  
 
