@@ -22,6 +22,12 @@ You are free to use the library in any research or commercial project, or any us
 
 Ranon R., Urli T.,	Improving the Efficiency of Viewpoint Composition, IEEE Transactions on Visualization and Computer Graphics, 20(5), May 2014, pp. 795-807.
 
+## Example Scene
+
+The example scene represents a office with four characters, and is provided only as a way to showcase the library. In the scene, the "Main Camera" object has a VCTesting script component which allows one to define the targets that we want to frame.
+
+ 
+
 
 
 
