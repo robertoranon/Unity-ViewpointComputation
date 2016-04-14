@@ -46,12 +46,13 @@ public class VCTesting : MonoBehaviour
 		camLibCam.unityCamera = unityCamera;
 		
 	}
-	
-	void ComputeAndShowCamera ( ) {
-		
+
+
+	void InitVCProblem () {
+
 		camLibCam.unityCamera.enabled = true;
 
-	
+
 		// define VC problem bounds, now taken from problemBounds game object
 		VCLookAtProblemDomain cameraDomain = new VCLookAtProblemDomain();
 		cameraDomain.positionBounds = new Bounds (problemBounds.position, problemBounds.localScale);
@@ -59,15 +60,22 @@ public class VCTesting : MonoBehaviour
 		// roll and FOV are fixed in this example
 		cameraDomain.rollBounds = new Vector2 (0.0f, 0.0f);
 		cameraDomain.yFOVBounds = new Vector2 (camLibCam.unityCamera.fieldOfView, camLibCam.unityCamera.fieldOfView);
-	
+
 		camLibCam.cameraDomain = cameraDomain;
 
 		List<GameObject> gos = new List<GameObject> (vc_targets);
-			
+
 		// build VC problem with selected game object ( weighted sum of properties )
 		buildVCProblem (gos, 0.1f, true);
 		// update look-at bounds to AABB of targets
 		cameraDomain.lookAtBounds = camLibCam.UpdateTargets ();
+
+
+	}
+	
+	void ComputeAndShowCamera ( ) {
+		
+
 
 		CLViewpoint result = psoSolver.SearchOptimal (20.0f, 0.999f, camLibCam, new List<CLCandidate> (), false, true);
 		Debug.Log ("Satisfaction after " + psoSolver.iterations + " iterations: " + result.satisfaction [0] + 
@@ -169,10 +177,12 @@ public class VCTesting : MonoBehaviour
 	void Update ()
 	{
 		if (Input.GetKeyDown ("p")) {
+			InitVCProblem ();
 			ComputeAndShowCamera ();
 		}
 		
 		if (Input.GetKeyDown ("e")) {
+			InitVCProblem ();
 			EvaluateCamera();
 		}
 	}
