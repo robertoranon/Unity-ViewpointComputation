@@ -13,7 +13,7 @@ Example usages:
 
 The library can compute a solution camera in any chosen amount of time (e.g., 10 milliseconds). For complex problems, however, more time will in general translate into better solutions. It is also possible to split the computation between a few successive frames.
 
-The library uses a stochastic solver based on Particle Swarm Optimization to find the best camera. A detailed exaplanation can be found in [Ranon, Urli, Improving the Efficiency of Viewpoint Computation, IEEE TVCG 2014](http://hcilab.uniud.it/publications/356.html). 
+The library uses a stochastic solver based on Particle Swarm Optimization to find the best camera. A detailed explanation can be found in [Ranon, Urli, Improving the Efficiency of Viewpoint Computation, IEEE TVCG 2014](http://hcilab.uniud.it/publications/356.html). 
 
 ## Using the library
 
