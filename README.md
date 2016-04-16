@@ -32,6 +32,8 @@ An example scene (as a .unitypackage) is provided [here](https://www.dropbox.com
 
 After playing the scene, press "p" to compute and show a camera that satisifies these properties, and "e" to evaluate how much the current camera satisfies the same properties (results are shown in the console). As you can see, each time you press "p" a different camera is generated. This is due to the stochastic nature of the solving process. 
 
+While in the Editor scene view, you can test our modified "Visibility-Aware Framing" command by selecting any object and then pressing the 'h' key. The editor scene camera will then be modified to frame the selected objects as the normal "Frame Selected" Unity command, but also rotating the editor camera to ensure visibility of the selected objects.
+
  
 
 
