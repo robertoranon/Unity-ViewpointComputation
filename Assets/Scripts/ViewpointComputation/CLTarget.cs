@@ -328,7 +328,7 @@ public class CLTarget
 		RaycastHit hitBack;
 		List<Vector3> points = new List<Vector3> ();
 		int n = nRays;  
-		for (int i = 0; i<( n - 1); i++) {
+		for (int i = 0; i<n; i++) {
 				points.Add (visibilityPoints[i]);
 			}
 
@@ -621,12 +621,12 @@ public class CLTarget
 			visibilityPoints.Add (p4);
 
 			Vector3 p5 = result.center;
-			p5 [1] = 0.33f * result.min [0] + 0.66f * result.max [0];
+			p5 [1] = 0.33f * result.min [1] + 0.66f * result.max [1];
 			p5 [2] = 0.33f * result.min [2] + 0.66f * result.max [2];
 			visibilityPoints.Add (p5);
 
 			Vector3 p6 = result.center;
-			p6 [1] = 0.66f * result.min [0] + 0.33f * result.max [0];
+			p6 [1] = 0.66f * result.min [1] + 0.33f * result.max [1];
 			p6 [2] = 0.33f * result.min [2] + 0.66f * result.max [2];
 			visibilityPoints.Add (p6);
 		} else if (nRays == 7) {
@@ -654,12 +654,12 @@ public class CLTarget
 			visibilityPoints.Add (p4);
 
 			Vector3 p5 = result.center;
-			p5 [1] = 0.25f * result.min [0] + 0.75f * result.max [0];
+			p5 [1] = 0.25f * result.min [1] + 0.75f * result.max [1];
 			p5 [2] = 0.25f * result.min [2] + 0.75f * result.max [2];
 			visibilityPoints.Add (p5);
 
 			Vector3 p6 = result.center;
-			p6 [1] = 0.75f * result.min [0] + 0.25f * result.max [0];
+			p6 [1] = 0.75f * result.min [1] + 0.25f * result.max [1];
 			p6 [2] = 0.25f * result.min [2] + 0.75f * result.max [2];
 			visibilityPoints.Add (p6);
 
