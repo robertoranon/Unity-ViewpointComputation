@@ -129,7 +129,9 @@ public abstract class CLCameraMan
 		
 		Bounds startingAABB = targets [0].UpdateBounds ();
 		Bounds allBounds = new Bounds (startingAABB.center, startingAABB.size);
-		foreach (CLTarget t in targets) {
+
+
+		foreach (CLTarget t in targets.Skip(1 )) {
 			allBounds.Encapsulate( t.UpdateBounds() );
 
 		}

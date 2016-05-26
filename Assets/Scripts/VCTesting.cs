@@ -31,6 +31,10 @@ public class VCTesting : MonoBehaviour
 
 	public float solverTime = 20.0f;
 
+	public int visibilityRays = 6;
+
+	public bool doubleSidedVisibilityChecking = false;
+
 	// camera man
 	CLLookAtCameraMan camLibCam;
 
@@ -112,7 +116,7 @@ public class VCTesting : MonoBehaviour
 
 			if ((renderables.Count > 0) && (colliders.Count > 0)) {  
 
-				CLTarget target = new CLTarget (2, targetobj, renderables, colliders , true,6);
+				CLTarget target = new CLTarget (2, targetobj, renderables, colliders , true,visibilityRays);
 				targets.Add ( target );
 
 				List<CLTarget> properties_targets = new List<CLTarget> ();
@@ -145,7 +149,7 @@ public class VCTesting : MonoBehaviour
 				// occlusion property with 4.0 weight 
 				List<float> occlFuncCtrlX = new List<float> { 0.0f, 0.5f, 0.6f, 1.0f };
 				List<float> occlFuncCtrlY = new List<float> { 1.0f, 0.7f, 0.1f, 0.0f };
-				CLOcclusionProperty occlP = new CLOcclusionProperty (targetobj.name + " occlusion", properties_targets, occlFuncCtrlX, occlFuncCtrlY, false);
+				CLOcclusionProperty occlP = new CLOcclusionProperty (targetobj.name + " occlusion", properties_targets, occlFuncCtrlX, occlFuncCtrlY, doubleSidedVisibilityChecking);
 				weights.Add (4.0f);
 				properties.Add (occlP);
 
@@ -186,6 +190,22 @@ public class VCTesting : MonoBehaviour
 		if (Input.GetKeyDown ("e")) {
 			InitVCProblem ();
 			EvaluateCamera();
+		}
+
+		if (Input.GetKeyDown ("l")) {
+			InitVCProblem ();
+
+			GameObject aabb = GameObject.CreatePrimitive (PrimitiveType.Cube);
+			aabb.transform.position = camLibCam.targets [0].targetAABB.center;
+			aabb.transform.localScale = camLibCam.targets [0].targetAABB.size;
+
+			foreach (Vector3 p in camLibCam.targets[0].visibilityPoints) {
+
+				GameObject newView = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+				newView.transform.position = p;
+				newView.transform.localScale = new Vector3 (0.1f, 0.1f, 0.1f);
+			}
+
 		}
 	}
 	

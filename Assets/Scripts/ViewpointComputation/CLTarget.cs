@@ -143,7 +143,7 @@ public class CLTarget
 	/// <summary>
 	/// List of points to be used for visibility checking
 	/// </summary>
-	private List<Vector3> visibilityPoints;
+	public List<Vector3> visibilityPoints;
 
 	/// <summary>
 	/// Whether to use renderers (true) or colliders (false) to compute bounding boxes
@@ -330,11 +330,11 @@ public class CLTarget
 		List<Vector3> points = new List<Vector3> ();
 		int n = nRays;  
 		for (int i = 0; i<n; i++) {
-				//points.Add (visibilityPoints[i]);
+				points.Add (visibilityPoints[i]);
 
-			points.Add ( new Vector3 ( UnityEngine.Random.Range (targetAABB.min.x, targetAABB.max.x),
-				UnityEngine.Random.Range (targetAABB.min.y, targetAABB.max.y),
-				UnityEngine.Random.Range (targetAABB.min.z, targetAABB.max.z)));
+			//points.Add ( new Vector3 ( UnityEngine.Random.Range (targetAABB.min.x, targetAABB.max.x),
+			//	UnityEngine.Random.Range (targetAABB.min.y, targetAABB.max.y),
+			//	UnityEngine.Random.Range (targetAABB.min.z, targetAABB.max.z)));
 
 			}
 
@@ -524,27 +524,29 @@ public class CLTarget
 			result = targetBounds;
 
 		}
-
+			
 		// update visibility points
 		visibilityPoints.Clear();
 		// determine longest extent of AABB
 		float[] extents = new float[]{ result.extents.x, result.extents.y, result.extents.z };
 		int[] indices = new int[]{ 0, 1, 2 };
 		Array.Sort (extents, indices);
-		int longest = indices [0];
+		int longest = indices [2];
 		int secondLongest = indices [1];
-		int shortest = indices [2];
+		int shortest = indices [0];
 
 		// now, depending on the number of rays, determine visibility points
 		if (nRays == 1) {
 			visibilityPoints.Add (result.center);
 		} else if (nRays == 2) { // two points, along the longest dimension of the AABBB
+
 			Vector3 p1 = result.center;
 			p1 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
 			visibilityPoints.Add (p1);
 			Vector3 p2 = result.center;
 			p2 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
 			visibilityPoints.Add (p2);
+
 		} else if (nRays == 3) { // three points along the longest dimension of the AABB
 			visibilityPoints.Add (result.center);
 			Vector3 p1 = result.center;
@@ -579,87 +581,97 @@ public class CLTarget
 			visibilityPoints.Add (result.center);
 
 			Vector3 p1 = result.center;
-			p1 [longest] = 0.25f * result.min [longest] + 0.66f * result.max [longest];
-			p1 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
+			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
+			//p1 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
 			visibilityPoints.Add (p1);
 
 			Vector3 p2 = result.center;
 			p2 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p2 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
+			//p2 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
 			visibilityPoints.Add (p2);
 
 			Vector3 p3 = result.center;
-			p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
+			//p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
 			p3 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
 			visibilityPoints.Add (p3);
 
 			Vector3 p4 = result.center;
-			p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p4 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
+			//p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
+			p4 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
 			visibilityPoints.Add (p4);
 		} else if (nRays == 6) {
 
 			Vector3 p1 = result.center;
-			p1 [0] = 0.33f * result.min [0] + 0.66f * result.max [0];
-			p1 [1] = 0.33f * result.min [1] + 0.66f * result.max [1];
+			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
+			p1 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
+			p1 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
 			visibilityPoints.Add (p1);
 
 			Vector3 p2 = result.center;
-			p2 [0] = 0.66f * result.min [0] + 0.33f * result.max [0];
-			p2 [1] = 0.33f * result.min [1] + 0.66f * result.max [1];
+			p2 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
+			p2 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
 			visibilityPoints.Add (p2);
 
 			Vector3 p3 = result.center;
-			p3 [0] = 0.33f * result.min [0] + 0.66f * result.max [0];
-			p3 [2] = 0.33f * result.min [2] + 0.66f * result.max [2];
+			p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
+			p3 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
+			p3 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
 			visibilityPoints.Add (p3);
 
 			Vector3 p4 = result.center;
-			p4 [0] = 0.66f * result.min [0] + 0.33f * result.max [0];
-			p4 [2] = 0.33f * result.min [2] + 0.66f * result.max [2];
+			p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
+			p4 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
+			p4 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
 			visibilityPoints.Add (p4);
 
 			Vector3 p5 = result.center;
-			p5 [1] = 0.33f * result.min [1] + 0.66f * result.max [1];
-			p5 [2] = 0.33f * result.min [2] + 0.66f * result.max [2];
+			p5 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
+			p5 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
 			visibilityPoints.Add (p5);
 
 			Vector3 p6 = result.center;
-			p6 [1] = 0.66f * result.min [1] + 0.33f * result.max [1];
-			p6 [2] = 0.33f * result.min [2] + 0.66f * result.max [2];
+			p6 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
+			p6 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
+			p6 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
 			visibilityPoints.Add (p6);
+
+
 		} else if (nRays == 7) {
 
 			visibilityPoints.Add (result.center);
 
 			Vector3 p1 = result.center;
-			p1 [0] = 0.25f * result.min [0] + 0.75f * result.max [0];
-			p1 [1] = 0.25f * result.min [1] + 0.75f * result.max [1];
+			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
+			p1 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
+			p1 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
 			visibilityPoints.Add (p1);
 
 			Vector3 p2 = result.center;
-			p2 [0] = 0.75f * result.min [0] + 0.25f * result.max [0];
-			p2 [1] = 0.25f * result.min [1] + 0.75f * result.max [1];
+			p2 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
+			p2 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
 			visibilityPoints.Add (p2);
 
 			Vector3 p3 = result.center;
-			p3 [0] = 0.25f * result.min [0] + 0.75f * result.max [0];
-			p3 [2] = 0.25f * result.min [2] + 0.75f * result.max [2];
+			p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
+			p3 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
+			p3 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
 			visibilityPoints.Add (p3);
 
 			Vector3 p4 = result.center;
-			p4 [0] = 0.75f * result.min [0] + 0.25f * result.max [0];
-			p4 [2] = 0.25f * result.min [2] + 0.75f * result.max [2];
+			p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
+			p4 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
+			p4 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
 			visibilityPoints.Add (p4);
 
 			Vector3 p5 = result.center;
-			p5 [1] = 0.25f * result.min [1] + 0.75f * result.max [1];
-			p5 [2] = 0.25f * result.min [2] + 0.75f * result.max [2];
+			p5 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
+			p5 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
 			visibilityPoints.Add (p5);
 
 			Vector3 p6 = result.center;
-			p6 [1] = 0.75f * result.min [1] + 0.25f * result.max [1];
-			p6 [2] = 0.25f * result.min [2] + 0.75f * result.max [2];
+			p6 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
+			p6 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
+			p6 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
 			visibilityPoints.Add (p6);
 
 		} else if (nRays == 8) {
@@ -717,51 +729,51 @@ public class CLTarget
 			visibilityPoints.Add (result.center);
 
 			Vector3 p1 = result.center;
-			p1 [longest] = 0.33f * result.min [longest] + 0.75f * result.max [longest];
+			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
 			p1 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p1 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
+			p1 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
 			visibilityPoints.Add (p1);
 
 			Vector3 p2 = result.center;
 			p2 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
 			p2 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p2 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
+			p2 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
 			visibilityPoints.Add (p2);
 
 			Vector3 p3 = result.center;
 			p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
 			p3 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p3 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
+			p3 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
 			visibilityPoints.Add (p3);
 
 			Vector3 p4 = result.center;
 			p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
 			p4 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p4 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
+			p4 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
 			visibilityPoints.Add (p4);
 
 			Vector3 p5 = result.center;
 			p5 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
 			p5 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p5 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
+			p5 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
 			visibilityPoints.Add (p5);
 
 			Vector3 p6 = result.center;
 			p6 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
 			p6 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p6 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
+			p6 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
 			visibilityPoints.Add (p6);
 
 			Vector3 p7 = result.center;
 			p7 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
 			p7 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p7 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
+			p7 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
 			visibilityPoints.Add (p7);
 
 			Vector3 p8 = result.center;
 			p8 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
 			p8 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p8 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
+			p8 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
 			visibilityPoints.Add (p8);
 
 
