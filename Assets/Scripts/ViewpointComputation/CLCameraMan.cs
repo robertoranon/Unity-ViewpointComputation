@@ -357,7 +357,14 @@ public abstract class VCProblemDomain
 	/// </summary>
 	/// <returns><c>true</c>, if it is in search space, <c>false</c> otherwise.</returns>
 	/// <param name="cameraParams">viewpoint parameters (depend on specific viewpoint representation)</param>
-	public abstract bool InSearchSpace (float[] cameraParams);
+	public virtual bool InSearchSpace (float[] cameraParams) {
+		if (minGeometryDistance > 0.000001f) {
+
+			return !(Physics.CheckSphere( new Vector3( cameraParams[0], cameraParams[1], cameraParams[2] ), minGeometryDistance, ~layersToExclude ));
+		}
+		return true;
+
+	}
 
 	/// <summary>
 	/// Computes a random viewpoint inside the domain.
@@ -416,7 +423,7 @@ public class VCLookAtProblemDomain : VCProblemDomain
 	public override bool InSearchSpace (float[] cameraParams)
 	{
 
-		bool inSpace = false;
+		bool inSpace = base.InSearchSpace( cameraParams );
 		if (cameraParams.Length >= 3) { // i.e. we have just camera position 
 			inSpace = positionBounds.Contains (new Vector3 (cameraParams [0], cameraParams [1], cameraParams [2]));
 			if (!inSpace)
@@ -578,7 +585,7 @@ public class VCOrbitProblemDomain: VCProblemDomain
 	public override bool InSearchSpace (float[] parameters)
 	{
 
-		bool inSpace = false;
+		bool inSpace = base.InSearchSpace( parameters );
 		inSpace = ((distanceBounds.x <= parameters [0]) && (parameters [0] <= distanceBounds.y) &&
 			(thetaBounds.x <= parameters [1]) && (parameters [1] <= thetaBounds.y) &&
 			(phiBounds.x <= parameters [2]) && (parameters [2] <= phiBounds.y));

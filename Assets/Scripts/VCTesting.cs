@@ -29,6 +29,8 @@ public class VCTesting : MonoBehaviour
 	// array of problem targets
 	public GameObject[] vc_targets;
 
+	public float solverTime = 20.0f;
+
 	// camera man
 	CLLookAtCameraMan camLibCam;
 
@@ -77,7 +79,7 @@ public class VCTesting : MonoBehaviour
 		
 
 
-		CLViewpoint result = psoSolver.SearchOptimal (20.0f, 0.999f, camLibCam, new List<CLCandidate> (), false, true);
+		CLViewpoint result = psoSolver.SearchOptimal (solverTime, 0.999f, camLibCam, new List<CLCandidate> (), false, true);
 		Debug.Log ("Satisfaction after " + psoSolver.iterations + " iterations: " + result.satisfaction [0] + 
 			", best iteration: " + psoSolver.iterOfBest );
 

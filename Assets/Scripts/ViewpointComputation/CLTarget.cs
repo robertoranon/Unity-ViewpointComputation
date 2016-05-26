@@ -177,6 +177,7 @@ public class CLTarget
 		name = sceneObj.name;
 		// builds list of points to be used for ray casting
 		visibilityPoints = new List<Vector3>(nRays);
+		screenRepresentation = new List<Vector2> ();
 	}
 
 
@@ -320,7 +321,7 @@ public class CLTarget
 	/// Computes how much the target is occluded by other objects by shooting N rays randomly inside the AABB of the target.
 	/// Current strategy is 1 ray to the center plus nRays-1 random rays
 	/// </summary>  
-	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = true)
+	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = false)
 	{
 
 		float result = 0.0f;
@@ -329,7 +330,12 @@ public class CLTarget
 		List<Vector3> points = new List<Vector3> ();
 		int n = nRays;  
 		for (int i = 0; i<n; i++) {
-				points.Add (visibilityPoints[i]);
+				//points.Add (visibilityPoints[i]);
+
+			points.Add ( new Vector3 ( UnityEngine.Random.Range (targetAABB.min.x, targetAABB.max.x),
+				UnityEngine.Random.Range (targetAABB.min.y, targetAABB.max.y),
+				UnityEngine.Random.Range (targetAABB.min.z, targetAABB.max.z)));
+
 			}
 
 		// now raycast from camera to each point
@@ -337,23 +343,16 @@ public class CLTarget
 		{
 			bool isOccludedFront = Physics.Linecast (camera.unityCamera.transform.position, p, out hitFront, layerMask);
 
-			if (frontBack)
-			{
+			if ((isOccludedFront && (!colliders.Contains (hitFront.collider.gameObject)))) {
+				result += 1.0f / n;
+
+			} else if (frontBack) {
+
 				bool isOccludedBack = Physics.Linecast (p, camera.unityCamera.transform.position, out hitBack, layerMask);
-				if (( isOccludedFront && ( !colliders.Contains (hitFront.collider.gameObject) ) ) ||  // if ray hit something, but not any of the target colliders
-					( isOccludedBack && ( !colliders.Contains (hitBack.collider.gameObject) ) ) ) 	
-				{
-					result += 1.0f/ n;
+				if (isOccludedBack && (!colliders.Contains (hitBack.collider.gameObject))) {
 
+					result += 1.0f / n;
 				}
-			}
-			else {
-				if (( isOccludedFront && ( !colliders.Contains (hitFront.collider.gameObject))))	
-				{
-					result += 1.0f/ n;
-
-				}
-
 			}
 
 		}
