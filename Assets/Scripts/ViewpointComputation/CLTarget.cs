@@ -44,6 +44,10 @@ public class CLTarget
 	/// </summary>    
 	public List<GameObject> colliders;
 
+	/// <summary>
+	/// The colliders layers.
+	/// </summary>
+	public List<int> collidersLayers;
 
 	/// <summary>
 	/// Screen-space 2D AABB (in viewport coordinates) of the projection of the target (its AABB). 
@@ -129,7 +133,7 @@ public class CLTarget
 		radius = AABB.extents.magnitude;
 		screenRepresentation = new List<Vector2> (10);
 	}
-		
+
 	/// <summary>
 	/// how many rays to use for ray casting
 	/// </summary>  
@@ -144,6 +148,8 @@ public class CLTarget
 	/// List of points to be used for visibility checking
 	/// </summary>
 	public List<Vector3> visibilityPoints;
+
+
 
 	/// <summary>
 	/// Whether to use renderers (true) or colliders (false) to compute bounding boxes
@@ -178,6 +184,14 @@ public class CLTarget
 		// builds list of points to be used for ray casting
 		visibilityPoints = new List<Vector3>(nRays);
 		screenRepresentation = new List<Vector2> ();
+
+		collidersLayers = new List<int> ();
+		foreach (GameObject g in colliders) {
+
+			collidersLayers.Add (g.layer);
+
+		}
+
 	}
 
 
@@ -321,7 +335,7 @@ public class CLTarget
 	/// Computes how much the target is occluded by other objects by shooting N rays randomly inside the AABB of the target.
 	/// Current strategy is 1 ray to the center plus nRays-1 random rays
 	/// </summary>  
-	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = false)
+	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = false, bool randomRayCasts=false)
 	{
 
 		float result = 0.0f;
@@ -330,32 +344,50 @@ public class CLTarget
 		List<Vector3> points = new List<Vector3> ();
 		int n = nRays;  
 		for (int i = 0; i<n; i++) {
-				points.Add (visibilityPoints[i]);
 
-			//points.Add ( new Vector3 ( UnityEngine.Random.Range (targetAABB.min.x, targetAABB.max.x),
-			//	UnityEngine.Random.Range (targetAABB.min.y, targetAABB.max.y),
-			//	UnityEngine.Random.Range (targetAABB.min.z, targetAABB.max.z)));
+			if (!randomRayCasts) {
 
+				points.Add (visibilityPoints [i]);
+
+			} else {
+
+				points.Add (new Vector3 (UnityEngine.Random.Range (targetAABB.min.x, targetAABB.max.x),
+					UnityEngine.Random.Range (targetAABB.min.y, targetAABB.max.y),
+					UnityEngine.Random.Range (targetAABB.min.z, targetAABB.max.z)));
 			}
+		}
+
+		// now move all colliders to layer 2 (ignore ray cast)
+		foreach (GameObject go in colliders) {
+			go.layer = 2;
+		}
+
 
 		// now raycast from camera to each point
 		foreach ( Vector3 p in points )
 		{
 			bool isOccludedFront = Physics.Linecast (camera.unityCamera.transform.position, p, out hitFront, layerMask);
 
-			if ((isOccludedFront && (!colliders.Contains (hitFront.collider.gameObject)))) {
+			if (isOccludedFront ) {
 				result += 1.0f / n;
 
 			} else if (frontBack) {
 
 				bool isOccludedBack = Physics.Linecast (p, camera.unityCamera.transform.position, out hitBack, layerMask);
-				if (isOccludedBack && (!colliders.Contains (hitBack.collider.gameObject))) {
+				if (isOccludedBack) {
 
 					result += 1.0f / n;
 				}
 			}
 
 		}
+
+		int j=0;
+		foreach (GameObject go in colliders) {
+			go.layer = collidersLayers[j];
+			j++;
+		}
+
 		return Mathf.Min (result, 1.0f);
 
 	}
@@ -524,7 +556,7 @@ public class CLTarget
 			result = targetBounds;
 
 		}
-			
+
 		// update visibility points
 		visibilityPoints.Clear();
 		// determine longest extent of AABB
@@ -792,7 +824,7 @@ public class CLTarget
 		return (result);
 
 	}
-		
+
 
 }
 

@@ -35,11 +35,16 @@ public class VCTesting : MonoBehaviour
 
 	public bool doubleSidedVisibilityChecking = false;
 
+	public bool randomRayCasts = false;
+
 	// camera man
 	CLLookAtCameraMan camLibCam;
+	VCLookAtProblemDomain cameraDomain;
 
 	// solver
 	PSOSolver psoSolver;
+
+	List<GameObject> debugAABB = new List<GameObject> ();
 
 	void Start ()
 	{
@@ -60,7 +65,7 @@ public class VCTesting : MonoBehaviour
 
 
 		// define VC problem bounds, now taken from problemBounds game object
-		VCLookAtProblemDomain cameraDomain = new VCLookAtProblemDomain();
+		cameraDomain = new VCLookAtProblemDomain();
 		cameraDomain.positionBounds = new Bounds (problemBounds.position, problemBounds.localScale);
 		cameraDomain.lookAtBounds = new Bounds (problemBounds.position, problemBounds.localScale);
 		// roll and FOV are fixed in this example
@@ -75,6 +80,25 @@ public class VCTesting : MonoBehaviour
 		buildVCProblem (gos, 0.1f, true);
 		// update look-at bounds to AABB of targets
 		cameraDomain.lookAtBounds = camLibCam.UpdateTargets ();
+
+		for (int i = debugAABB.Count - 1; i >= 0; i--) {
+			DestroyImmediate (debugAABB [i]);
+		}
+		debugAABB.Clear ();	
+
+		Debug.Log ("We have " + camLibCam.targets.Count + "targets.");
+
+		foreach (CLTarget t in camLibCam.targets) {
+
+			GameObject box = GameObject.CreatePrimitive (PrimitiveType.Cube);
+			box.name = t.gameObjectRef.name + "_AABB";
+			box.transform.position = t.targetAABB.center;
+			box.transform.localScale = t.targetAABB.size;
+			box.GetComponent<MeshRenderer> ().enabled = false;
+			box.layer = 2;
+			debugAABB.Add (box);
+
+		}
 
 
 	}
@@ -106,6 +130,8 @@ public class VCTesting : MonoBehaviour
 		List<CLTarget> targets = new List<CLTarget> ();
 		List<float> weights = new List<float> ();
 
+		int layerMask = (1 << 2);
+
 		float preferredSize = desiredSize / (targetObjects.Count);
 
 		// for each game object in the list
@@ -116,7 +142,7 @@ public class VCTesting : MonoBehaviour
 
 			if ((renderables.Count > 0) && (colliders.Count > 0)) {  
 
-				CLTarget target = new CLTarget (2, targetobj, renderables, colliders , true,visibilityRays);
+				CLTarget target = new CLTarget (layerMask, targetobj, renderables, colliders , true,visibilityRays);
 				targets.Add ( target );
 
 				List<CLTarget> properties_targets = new List<CLTarget> ();
@@ -149,7 +175,7 @@ public class VCTesting : MonoBehaviour
 				// occlusion property with 4.0 weight 
 				List<float> occlFuncCtrlX = new List<float> { 0.0f, 0.5f, 0.6f, 1.0f };
 				List<float> occlFuncCtrlY = new List<float> { 1.0f, 0.7f, 0.1f, 0.0f };
-				CLOcclusionProperty occlP = new CLOcclusionProperty (targetobj.name + " occlusion", properties_targets, occlFuncCtrlX, occlFuncCtrlY, doubleSidedVisibilityChecking);
+				CLOcclusionProperty occlP = new CLOcclusionProperty (targetobj.name + " occlusion", properties_targets, occlFuncCtrlX, occlFuncCtrlY, doubleSidedVisibilityChecking, randomRayCasts);
 				weights.Add (4.0f);
 				properties.Add (occlP);
 
@@ -195,10 +221,6 @@ public class VCTesting : MonoBehaviour
 		if (Input.GetKeyDown ("l")) {
 			InitVCProblem ();
 
-			GameObject aabb = GameObject.CreatePrimitive (PrimitiveType.Cube);
-			aabb.transform.position = camLibCam.targets [0].targetAABB.center;
-			aabb.transform.localScale = camLibCam.targets [0].targetAABB.size;
-
 			foreach (Vector3 p in camLibCam.targets[0].visibilityPoints) {
 
 				GameObject newView = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -207,6 +229,23 @@ public class VCTesting : MonoBehaviour
 			}
 
 		}
+
+		if (Input.GetKeyDown ("t")) {
+
+			InitVCProblem ();
+
+			float beginTime = Time.realtimeSinceStartup;
+
+			for (int i = 0; i < 10000; i++) {
+				camLibCam.EvaluateSatisfaction (cameraDomain.ComputeRandomViewpoint (6), 0.0001f);
+			}
+
+			float endTime = Time.realtimeSinceStartup;
+
+			Debug.Log ("10000 evaluations in " + (endTime - beginTime) + " seconds.");
+
+		}
+
 	}
 	
 	

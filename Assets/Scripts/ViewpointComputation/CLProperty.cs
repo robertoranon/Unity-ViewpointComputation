@@ -450,9 +450,8 @@ public class CLOcclusionProperty : CLGroundProperty
 	// shooting from target to camera (i.e. each ray is in both ways)
 	bool frontBack; 
 
-	// if true, ray casts are towards random points in target bounds; if false, we shoot 30 rays towards random vertices
-	// of renderables
-	bool rayCastToBoundingBox;
+	// if true, ray casts are towards random points in target bounds; if false, we use custom fixed positions inside AABB
+	bool randomRayCasts;
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="OcclusionProperty"/> class.
@@ -461,12 +460,13 @@ public class CLOcclusionProperty : CLGroundProperty
 	/// <param name="_targets">property targets</param>
 	/// <param name="_satXPoints">x points of the satisfaction linear spline</param>
 	/// <param name="_satYPoints">y points of the satisfaction linear spline</param>
-	public CLOcclusionProperty (string _name, List<CLTarget> _targets, List<float> _satXPoints, List<float> _satYPoints, bool _frontBack = true) :
+	public CLOcclusionProperty (string _name, List<CLTarget> _targets, List<float> _satXPoints, List<float> _satYPoints, bool _frontBack = true, bool _randomRayCasts = false) :
 		base ( _name, _targets )
 	{
 		satFunction = new CLLinearSplineSatFunction (_satXPoints, _satYPoints);
 		cost = 20.0f;
 		frontBack = _frontBack;
+		randomRayCasts = _randomRayCasts;
 	}
 
 	public CLOcclusionProperty (string _name) : base (_name, new List<CLTarget> ()){}
@@ -477,11 +477,12 @@ public class CLOcclusionProperty : CLGroundProperty
 	/// <param name="_name">property name</param>
 	/// <param name="_targets">property targets</param>
 	/// <param name="_satFunction">sat function</param>
-	public CLOcclusionProperty (string _name, List<CLTarget> _targets, CLSatFunction _satFunction, bool _frontBack = true) :
+	public CLOcclusionProperty (string _name, List<CLTarget> _targets, CLSatFunction _satFunction, bool _frontBack = true, bool _randomRayCasts = false ) :
 	base ( _name, _targets, _satFunction )
 	{
 		cost = 20.0f;
 		frontBack = _frontBack;
+		randomRayCasts = _randomRayCasts;
 
 	}
 	
@@ -493,7 +494,7 @@ public class CLOcclusionProperty : CLGroundProperty
 	/// <param name="camera">Camera.</param>
 	public override float ComputeValue (CLCameraMan camera)
 	{
-		return Mathf.Min (targets [0].ComputeOcclusion (camera, frontBack), satFunction.domain.y);
+		return Mathf.Min (targets [0].ComputeOcclusion (camera, frontBack, randomRayCasts), satFunction.domain.y);
 	}
         
 
