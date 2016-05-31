@@ -144,7 +144,7 @@ public abstract class CLCameraMan
 	/// </summary>
 	/// <returns><c>true</c>, if it is in search space, <c>false</c> otherwise.</returns>
 	/// <param name="cameraParams">Viewpoint parameters</param>
-	public  bool inSearchSpace (float[] cameraParams) {
+	public  bool InSearchSpace (float[] cameraParams) {
 		return cameraDomain.InSearchSpace (cameraParams);
 	}
 	

@@ -114,7 +114,7 @@ public class CLCandidate : IComparable<CLCandidate>
 	/// <param name="checkGeometry">If set to <c>true</c> check geometry.</param>
 	public bool InSearchSpace (CLCameraMan evaluator)
 	{
-		return evaluator.inSearchSpace (position);		
+		return evaluator.InSearchSpace (position);		
 	}
 
 	public int CompareTo(CLCandidate other)
@@ -225,7 +225,7 @@ public abstract class CLSolver {
 	/// candidate satisfaction. If init is true, we start search from scratch, i.e. by
 	/// first initializing candidates; otherwise, we use the current candidates
 	/// </summary>
-	public CLViewpoint SearchOptimal (float _timeLimit, float _satisfactionThreshold, CLCameraMan _evaluator, List<CLCandidate> initialCandidates, bool checkGeometry, bool init) {
+	public CLViewpoint SearchOptimal (float _timeLimit, float _satisfactionThreshold, CLCameraMan _evaluator, List<CLCandidate> initialCandidates, bool checkGeometry=false, bool init=true) {
 
 		//if init, initialize n candidates ( with r_part candidates randomly initialized )
 		beginTime = Time.realtimeSinceStartup;

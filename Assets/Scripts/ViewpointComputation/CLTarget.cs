@@ -130,7 +130,7 @@ public class CLTarget
 	public void SetBoundingVolume (Bounds AABB)
 	{
 		targetAABB = AABB;
-		radius = AABB.extents.magnitude;
+		radius = Mathf.Max (AABB.extents [0], Mathf.Max (AABB.extents [1], AABB.extents [2]));
 		screenRepresentation = new List<Vector2> (10);
 	}
 
@@ -438,47 +438,37 @@ public class CLTarget
 	public Vector3 GenerateRandomSatisfyingPosition (CLCameraMan camera, bool considerVisibility = false)
 	{
 
-		// we operate in spherical coordinates, and we start with random values
-		float distance = 300.0f * UnityEngine.Random.value;   // instead of 300.0f, we should use the position bounds diagonal
-		float theta = (Mathf.PI) * UnityEngine.Random.value;
-		float phi = Mathf.PI * 2 * UnityEngine.Random.value; 
 
 		Vector3 result = new Vector3 ();
 
 		bool found = false;
 
+		int ntries = 0;
+
+		float yFOV = (camera.cameraDomain.yFOVBounds [0] + camera.cameraDomain.yFOVBounds [1]) / 2;
+
 		// we allow for 30 tries before giving up
-		for (int i = 0; i<30 && !found; i++) {
+		while (ntries < 30 && !found) {
+
+			float distance = 0.0f;
+			float phi = 0.0f;
+			float theta=0.0f;
 
 			foreach (CLGroundProperty p in targetProperties) {
 
 				if (p is CLSizeProperty) {
-					float FOV;
 
-					Vector2 yFOVrange = camera.cameraDomain.yFOVBounds;
-					float yFOV = (yFOVrange [1] + yFOVrange [0]) / 2;  // required vertical FOV
-					// AR is width/height
-					float AR = camera.unityCamera.aspect;
-					// we compute horizontal FOV
-					float xFOV = AR * yFOV;
+					CLSizeProperty sp = (CLSizeProperty)p;
 
-					// assuming AREA property. We convert areas to radiuses, and use the min of the two FOVs
-					// XXXX we need to handle also WIDTH and HEIGHT
-					FOV = Mathf.Min (xFOV, yFOV);
-
-					float tmp = 0.3f / Mathf.Tan (Mathf.Deg2Rad * FOV / 2);   // should be 0.5, but bs is bigger than AABB
-
+					// this returns a random area, or width, or height, depending on the type of size
+					// property, with more probability where the satisfaction is higher
 					float randomSize = p.satFunction.GenerateRandomXPoint ();
-
-					// convert x, which is a size, to a distance from camera
-
 					if (randomSize < 0.0001f)
 						randomSize = 0.0001f; // to avoid computing an infinite distance.
 
-
-					// assuming AREA property. We convert areas to radiuses, and use the average of the two FOVs
-					randomSize = Mathf.Sqrt (randomSize / Mathf.PI);
-					distance = (radius / randomSize) * tmp;  // now x is a distance (instead of width, height or area)
+					// compute distance from target size
+					distance = ComputeDistanceFromSize (randomSize, sp.sizeType, camera, yFOV);
+						
 				}
 
 				if (p is CLOrientationProperty ) {
@@ -486,12 +476,12 @@ public class CLTarget
 
 					if ( op.orientation == CLOrientationProperty.OrientationMode.HORIZONTAL ) {
 						phi = Mathf.Deg2Rad * op.satFunction.GenerateRandomXPoint (); // horizontal random angle
-						// XXX we are not considering CameraOrientation
+
 
 					}
 					else {
 						theta = Mathf.Deg2Rad * op.satFunction.GenerateRandomXPoint (); // vertical random angle
-						// XXX we are not considering CameraOrientation
+
 					}
 				}
 
@@ -500,29 +490,29 @@ public class CLTarget
 
 			// if we are not inside bs sphere
 			if (distance > radius) {
-				// convert in cartesian coordinates
-				result.x = distance * Mathf.Sin (theta) * Mathf.Sin (phi);
-				result.y = distance * Mathf.Cos (theta);
-				result.z = distance * Mathf.Cos (phi) * Mathf.Sin (theta); 
 
-				Vector3 shift = targetAABB.center - gameObjectRef.transform.position;
+				result = ComputeWorldPosFromSphericalCoordinates (distance, phi, theta);
 
-				// now check that we are inside bounds
-				result = gameObjectRef.transform.TransformPoint (result) + shift;
 
-				if (camera.inSearchSpace (new float[] {result.x, result.y, result.z})) {
+				if (camera.InSearchSpace (new float[] {result.x, result.y, result.z}) ) {
 
 					found = true;
+
+
 				} 
 
 			}
+
+			ntries++;
 		}
 
 
-		if (!found)
-		{
-			float[] randomCandidate = camera.cameraDomain.ComputeRandomViewpoint(3);
-			result = new Vector3( randomCandidate[0], randomCandidate[1], randomCandidate[2]);
+		if (!found) {
+			float[] randomCandidate = camera.cameraDomain.ComputeRandomViewpoint (3);
+			result = new Vector3 (randomCandidate [0], randomCandidate [1], randomCandidate [2]);
+			//Debug.Log ("random candidate");
+		} else {
+			//Debug.Log ("smart candidate in " + ntries + " tries");
 		}
 
 		return result;
@@ -530,6 +520,86 @@ public class CLTarget
 
 
 
+	/// <summary>
+	/// Given a desired on screen size (area, width, or height), computes camera distance, assuming the target is
+	/// approximated by its bounding sphere, centered on the screen.
+	/// </summary>
+	/// <returns>the camera distance</returns>
+	/// <param name="targetSize">Target size.</param>
+	/// <param name="sizeMode">Size mode.</param>
+	/// <param name="camera">Camera.</param>
+	/// <param name="yFOV">yFOV, in degrees</param>
+	public float ComputeDistanceFromSize (float targetSize, CLSizeProperty.SizeMode sizeMode, CLCameraMan camera, float yFOV) {
+
+		// AR is width/height
+		float AR = camera.unityCamera.aspect;
+		// we compute horizontal FOV
+		float yFOVRad = Mathf.Deg2Rad * yFOV;
+
+		float projectedRadius = 1.0f;
+
+		// now we need to compute distance from size
+		if (sizeMode == CLSizeProperty.SizeMode.AREA) {
+
+			// assuming viewport height is 1, area viewport is 1*AR. Our target area is therefore relative to targetSize*AR 
+			// projected radius should then be
+			projectedRadius = Mathf.Sqrt( targetSize * AR / Mathf.PI);
+
+		} else if (sizeMode == CLSizeProperty.SizeMode.HEIGHT) {
+
+			// assuming viewport height is 1, our target height is correct (relative to 1). We need half height
+			projectedRadius = 0.5f * targetSize;
+
+		} else { // it is a width property
+
+			// assuming viewport height is 1, our target width is relative to targetSize*AR
+			projectedRadius = 0.5f * targetSize*AR;
+		}
+
+		// this means, in world space, the distance from the center of the sphere to the top of the screen should be
+		float halfscreen = radius * 0.5f / projectedRadius;
+
+		// now solve with the usual trigonometry relation
+
+		float distance = halfscreen / Mathf.Tan (yFOVRad / 2);
+
+		return distance;
+	}
+
+	/// <summary>
+	/// Computes the world position from spherical coordinates.
+	/// </summary>
+	/// <returns>The world position from spherical coordinates.</returns>
+	/// <param name="distance">Distance.</param>
+	/// <param name="phi">Phi.</param>
+	/// <param name="theta">polar angle theta, 0 is the north pole, value in radians</param>
+	public Vector3 ComputeWorldPosFromSphericalCoordinates( float distance, float phi, float theta) {
+
+		Vector3 result;
+
+		result.x = distance * Mathf.Sin (theta) * Mathf.Sin (phi);
+		result.y = distance * Mathf.Cos (theta);
+		result.z = distance * Mathf.Cos (phi) * Mathf.Sin (theta); 
+
+		Vector3 shift = targetAABB.center - gameObjectRef.transform.position;
+		//Debug.Log (shift.magnitude);
+
+		// now check that we are inside bounds
+		// invert scale 
+		Vector3 scaledResult = new Vector3 (1 / gameObjectRef.transform.lossyScale.x,
+			1 / gameObjectRef.transform.lossyScale.y,
+			1 / gameObjectRef.transform.lossyScale.z);
+
+		result = gameObjectRef.transform.TransformPoint (Vector3.Scale(result, scaledResult)) + shift;
+
+		return result;
+	}
+
+
+	/// <summary>
+	/// Updates the AABB and BS based on renderables / collliders bounds
+	/// </summary>
+	/// <returns>The bounds.</returns>
 	public Bounds UpdateBounds () 
 	{
 

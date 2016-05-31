@@ -421,7 +421,7 @@ public	class CLSizeProperty : CLGroundProperty
             
 				result = result + targets [0].targetAABB.center;
             
-				if (camera.inSearchSpace( new float[] {result.x, result.y, result.z} )) {
+				if (camera.InSearchSpace( new float[] {result.x, result.y, result.z} )) {
 					found = true;
 				}
 			}
@@ -915,7 +915,7 @@ public class CLOrientationProperty : CLGroundProperty
 			}
         
 			// if we are in problem bounds, ok - otherwise we throw away the point and generate a new one
-			if (camera.inSearchSpace( new float[] {result.x, result.y, result.z})) {
+			if (camera.InSearchSpace( new float[] {result.x, result.y, result.z})) {
 				found = true;
 			}
         

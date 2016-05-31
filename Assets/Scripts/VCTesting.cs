@@ -37,6 +37,8 @@ public class VCTesting : MonoBehaviour
 
 	public bool randomRayCasts = false;
 
+	public bool debugMode = false;
+
 	// camera man
 	CLLookAtCameraMan camLibCam;
 	VCLookAtProblemDomain cameraDomain;
@@ -45,6 +47,7 @@ public class VCTesting : MonoBehaviour
 	PSOSolver psoSolver;
 
 	List<GameObject> debugAABB = new List<GameObject> ();
+	List<GameObject> viewpoints = new List<GameObject> ();
 
 	void Start ()
 	{
@@ -52,7 +55,7 @@ public class VCTesting : MonoBehaviour
 		// create main library objects: camera man, solver, problem bounds
 		camLibCam = new CLLookAtCameraMan ();	
 		psoSolver = new PSOSolver (6); // for 6 degrees of freedom VC problem
-		psoSolver.SetSolverParameters (20, 0.3f, new float[]{1.0f, 1.0f, 1.0f, 0.4f}); // number of particles, fraction of randomly initialized particles, c1, c2, w_init, w_end
+		psoSolver.SetSolverParameters (20, 0.0f, new float[]{1.0f, 1.0f, 0.8f, 0.4f}); // number of particles, fraction of randomly initialized particles, c1, c2, w_init, w_end
 		Camera unityCamera = GetComponentInParent<Camera> ();
 		camLibCam.unityCamera = unityCamera;
 		
@@ -60,7 +63,6 @@ public class VCTesting : MonoBehaviour
 
 
 	void InitVCProblem () {
-
 		camLibCam.unityCamera.enabled = true;
 
 
@@ -81,41 +83,43 @@ public class VCTesting : MonoBehaviour
 		// update look-at bounds to AABB of targets
 		cameraDomain.lookAtBounds = camLibCam.UpdateTargets ();
 
-		for (int i = debugAABB.Count - 1; i >= 0; i--) {
-			DestroyImmediate (debugAABB [i]);
+		if (debugMode) {
+
+			for (int i = debugAABB.Count - 1; i >= 0; i--) {
+				DestroyImmediate (debugAABB [i]);
+			}
+			debugAABB.Clear ();	
+
+			//Debug.Log ("We have " + camLibCam.targets.Count + "targets.");
+
+			foreach (CLTarget t in camLibCam.targets) {
+
+				GameObject box = GameObject.CreatePrimitive (PrimitiveType.Cube);
+				box.name = t.gameObjectRef.name + "_AABB";
+				box.transform.position = t.targetAABB.center;
+				box.transform.localScale = t.targetAABB.size;
+				box.GetComponent<MeshRenderer> ().enabled = false;
+				box.layer = 2;
+				debugAABB.Add (box);
+
+			}
+
 		}
-		debugAABB.Clear ();	
 
-		Debug.Log ("We have " + camLibCam.targets.Count + "targets.");
-
-		foreach (CLTarget t in camLibCam.targets) {
-
-			GameObject box = GameObject.CreatePrimitive (PrimitiveType.Cube);
-			box.name = t.gameObjectRef.name + "_AABB";
-			box.transform.position = t.targetAABB.center;
-			box.transform.localScale = t.targetAABB.size;
-			box.GetComponent<MeshRenderer> ().enabled = false;
-			box.layer = 2;
-			debugAABB.Add (box);
-
-		}
+		foreach (GameObject go in viewpoints)
+			DestroyImmediate (go);
+		viewpoints.Clear ();
 
 
 	}
 	
 	void ComputeAndShowCamera ( ) {
-		
-
-
 		CLViewpoint result = psoSolver.SearchOptimal (solverTime, 0.999f, camLibCam, new List<CLCandidate> (), false, true);
 		Debug.Log ("Satisfaction after " + psoSolver.iterations + " iterations: " + result.satisfaction [0] + 
 			", best iteration: " + psoSolver.iterOfBest );
 
 		// update camera with found solution
 		camLibCam.updateCamera (result.psoRepresentation);
-
-
-
 	}
 
 
@@ -148,16 +152,18 @@ public class VCTesting : MonoBehaviour
 				List<CLTarget> properties_targets = new List<CLTarget> ();
 				properties_targets.Add (target);
 
-				// size property with 2.5 weight
+				//area property with 2.5 weight
 				List<float> sizeSatFuncCtrlX = new List<float> { 0.0f, 0.002f, preferredSize, 0.4f, 0.5f, 1.0f };
 				List<float> sizeSatFuncCtrlY = new List<float> { 0.0f, 0.1f, 0.8f, 1.0f, 0.1f, 0.0f };
 				CLSizeProperty sizeP = new CLSizeProperty (CLSizeProperty.SizeMode.AREA, targetobj.name + " size", properties_targets, sizeSatFuncCtrlX, sizeSatFuncCtrlY);
 				weights.Add (2.5f);
 				properties.Add (sizeP);
 
+
+
 				// orientation property (see from front) with w = 1.0
-				List<float> hORFuncCtrlX = new List<float> { -180.0f, 0.0f, 180.0f };
-				List<float> hORFuncCtrlY = new List<float> { 0.0f, 1.0f, 0.0f };
+				List<float> hORFuncCtrlX = new List<float> { -180.0f, -90f, 0.0f, 90f, 180.0f };
+				List<float> hORFuncCtrlY = new List<float> { 0.0f, 0.1f, 1.0f, 0.1f, 0.0f };
 				CLOrientationProperty orP = new CLOrientationProperty (CLOrientationProperty.OrientationMode.HORIZONTAL, targetobj.name + " orientation",
 					properties_targets, hORFuncCtrlX, hORFuncCtrlY);
 				properties.Add (orP);
@@ -165,8 +171,8 @@ public class VCTesting : MonoBehaviour
 
 
 				// v-orientation property (see from 90 to top), w=1.5
-				List<float> vORFuncCtrlX = new List<float> { 0.0f, 90.0f, 180.0f };
-				List<float> vORFuncCtrlY = new List<float> { 0.0f, 1.0f, 0.0f };
+				List<float> vORFuncCtrlX = new List<float> { 0.0f, 90.0f, 95f, 180.0f };
+				List<float> vORFuncCtrlY = new List<float> { 0.0f, 1.0f, 0.1f, 0.0f };
 				CLOrientationProperty orPV = new CLOrientationProperty (CLOrientationProperty.OrientationMode.VERTICAL_WORLD,
 					targetobj.name + " vorientation", properties_targets, vORFuncCtrlX, vORFuncCtrlY);
 				properties.Add (orPV);
@@ -204,20 +210,50 @@ public class VCTesting : MonoBehaviour
 
 
 	}
+
+
+	void DisplaySolutions ( CLCandidate[] candidates, bool useBestPosition ) {
+
+
+
+		for (int i=0; i<psoSolver.numberOfCandidates; i++) {
+			GameObject newView = new GameObject();
+			newView.AddComponent<Camera>();
+			viewpoints.Add (newView);
+			float[] position = new float[6];
+
+			if (useBestPosition) {
+				position = candidates[i].bestPosition;
+
+			} else {  // FASolver
+				position = candidates[i].position;
+			}
+
+			newView.transform.position = new Vector3 (position[0],position[1],position[2]);
+			newView.transform.LookAt( new Vector3(position[3],position[4],position[5]));
+
+
+		}
+
+	}
 	
 
 	void Update ()
 	{
+
+		// solves current problem
 		if (Input.GetKeyDown ("p")) {
 			InitVCProblem ();
 			ComputeAndShowCamera ();
 		}
 		
+		// evaluates current camera against current problem
 		if (Input.GetKeyDown ("e")) {
 			InitVCProblem ();
 			EvaluateCamera();
 		}
 
+		// show visibility points of current targets
 		if (Input.GetKeyDown ("l")) {
 			InitVCProblem ();
 
@@ -230,6 +266,7 @@ public class VCTesting : MonoBehaviour
 
 		}
 
+		// test satisfaction n times on random cameras
 		if (Input.GetKeyDown ("t")) {
 
 			InitVCProblem ();
@@ -243,6 +280,27 @@ public class VCTesting : MonoBehaviour
 			float endTime = Time.realtimeSinceStartup;
 
 			Debug.Log ("10000 evaluations in " + (endTime - beginTime) + " seconds.");
+
+		}
+
+		// initializes candidates and shows them
+		if (Input.GetKeyDown ("i")) {
+			InitVCProblem ();
+			psoSolver.evaluator = camLibCam;
+			psoSolver.InitializeCandidates (new List<CLCandidate> ());
+			DisplaySolutions (psoSolver.candidates, false);
+		}
+
+		// finds a camera that satisfies a size property
+		if (Input.GetKeyDown ("c")) {
+
+			InitVCProblem ();
+			float distance = camLibCam.targets [0].ComputeDistanceFromSize (0.5f, CLSizeProperty.SizeMode.HEIGHT, camLibCam, 
+				camLibCam.unityCamera.fieldOfView);
+			Debug.Log (distance);
+			Vector3 pos = camLibCam.targets [0].ComputeWorldPosFromSphericalCoordinates (distance, 0.99F*2*Mathf.PI, Mathf.PI/2);
+			camLibCam.unityCamera.transform.position = pos;
+			camLibCam.unityCamera.transform.LookAt (camLibCam.targets [0].targetAABB.center);
 
 		}
 
