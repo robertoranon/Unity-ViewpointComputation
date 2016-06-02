@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Collections;
 using UnityEngine;
 using System;
+using System.Linq;
 
 /// <summary>
 /// Static class of utility methods for CLTarget-related functions
@@ -678,7 +679,7 @@ public class CLLinearSplineSatFunction : CLSatFunction {
 
 		satXPoints = new List<float> (_satXPoints);
 		satYPoints = new List<float> (_satYPoints);
-		domain = new Vector2 (_satXPoints [0], _satXPoints [_satXPoints.Count - 1]);
+		domain = new Vector2 (satXPoints.Min(), satXPoints.Max());
 		BuildCDF ();
 	}
 
@@ -749,7 +750,7 @@ public class CLLinearSplineSatFunction : CLSatFunction {
 
 		}
 
-		domain = new Vector2 (satXPoints [0], satXPoints [satXPoints.Count - 1]);
+		domain = new Vector2 (satXPoints.Min(), satXPoints.Max());
 		BuildCDF ();
 
 	}

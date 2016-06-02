@@ -75,11 +75,12 @@ public class CLViewpoint
 	/// </summary>
 	/// <returns>The viewpoint satisfaction in [0,1].</returns>
 	/// <param name="camera">camera man object</param>
-	public float EvaluateViewpoint( CLCameraMan cameraman, bool setObjectiveFunction = false ) {
+	public virtual float EvaluateViewpoint( CLCameraMan cameraman, bool setObjectiveFunction = false ) {
 
 		if (setObjectiveFunction) {
 
 			cameraman.SetSpecification( properties);
+			cameraman.UpdateTargets ();
 
 		}
 
@@ -93,7 +94,17 @@ public class CLViewpoint
 			t.rendered = false;
 		}
 
-		return properties[0].EvaluateSatisfaction( cameraman );
+		float result = properties[0].EvaluateSatisfaction( cameraman );
+
+		satisfaction = new List<float> ();
+		inScreenRatio = new List<float> ();
+
+		for (int i=0; i<cameraman.properties.Count; i++) {
+			satisfaction.Add( cameraman.properties [i].satisfaction );
+			inScreenRatio.Add( cameraman.properties [i].inScreenRatio );
+		}
+
+		return result;
 	}
 
 
