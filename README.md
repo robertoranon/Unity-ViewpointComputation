@@ -2,7 +2,7 @@
 
 Unity-ViewpointComputation is a library for computing the virtual camera parameters (position, orientation, FOV) that satisfy a set of visual requirements - such as size, visibility, and angle of a set of objects in the scene - in the image rendered by the camera. Instead of playing with camera parameters, compose an image by identifying subjects, their size, position, and visibility, and the library will compute the virtual camera parameters for you.
 
-The library has been tested with Unity 5.3, but should work also with older versions (and even with 5.4 beta).
+The library has been tested with Unity 5, and it should work with all 5.x versions.
 
 Example usages:
 

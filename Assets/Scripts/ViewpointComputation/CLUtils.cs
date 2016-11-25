@@ -22,6 +22,13 @@ using System.Linq;
 public static class TargetUtils
 {
 
+
+
+	/// <summary>
+	/// Intersect the specified a and b Bounds
+	/// </summary>
+	/// <param name="a">first bound.</param>
+	/// <param name="b">second bound.</param>
 	public static Bounds intersect( Bounds a, Bounds b)
 	{
 		Bounds result = new Bounds ();
@@ -326,6 +333,47 @@ public static class TargetUtils
 
 		// Off the end
 		return controlY [controlX.Count - 1];	
+
+	}
+
+
+	public static List<Vector3> ComputePointsOnSphere( int numPoints, Vector3 center, float radius ) {
+
+		float phi = (Mathf.Sqrt(5f)+1f)/2f - 1f; // golden ratio
+		float ga = phi*2f*Mathf.PI;           // golden angle
+
+		List<Vector3> result = new List<Vector3> ();
+
+		for (int i = 1; i <= numPoints; ++i) {
+			float lon = ga * i;
+			lon /= 2 * Mathf.PI; 
+			lon -= Mathf.Floor (lon); 
+			lon *= 2 * Mathf.PI;
+			if (lon > Mathf.PI)
+				lon -= 2 * Mathf.PI;
+
+			// Convert dome height (which is proportional to surface area) to latitude
+			float lat = Mathf.Asin (-1f + 2f * i / (float)numPoints);
+
+			Vector3 newPoint = new Vector3 (
+				                   radius * Mathf.Cos (lat) * Mathf.Cos (lon),
+				                   radius * Mathf.Cos (lat) * Mathf.Sin (lon),
+				                   radius * Mathf.Sin (lat)) + center;
+
+			result.Add (newPoint);
+		}
+
+		return result;
+
+	}
+
+
+	public static Vector3 RandomPointInsideBounds( Bounds b ) {
+
+		return new Vector3 (UnityEngine.Random.Range (b.min.x, b.max.x), 
+			UnityEngine.Random.Range (b.min.y, b.max.y), 
+			UnityEngine.Random.Range (b.min.z, b.max.z));
+
 
 	}
 

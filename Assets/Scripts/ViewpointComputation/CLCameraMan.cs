@@ -35,7 +35,7 @@ public abstract class CLCameraMan
 	/// <summary>
 	/// The camera parameters domain, instantiate depending on the specific camera representation.
 	/// </summary>
-	public VCProblemDomain cameraDomain;
+	public VCCameraDomain cameraDomain;
 	
 	/// <summary>
 	/// List of visual properties, the first one is the objective function
@@ -70,7 +70,7 @@ public abstract class CLCameraMan
 		properties.AddRange (propertyList);
 
 		foreach (CLTarget t in targets) {
-			t.targetProperties.Clear();
+			t.groundProperties.Clear();
 		}
 			
 		// finds associations between targets and ground properties
@@ -79,7 +79,7 @@ public abstract class CLCameraMan
 			if ( p is CLGroundProperty ) {
 				CLGroundProperty gp = (CLGroundProperty) p;
 				foreach ( CLTarget t in gp.targets ) {
-					t.targetProperties.Add ( gp );
+					t.groundProperties.Add ( gp );
 				}
 			}
 		}
@@ -128,14 +128,16 @@ public abstract class CLCameraMan
 	{
 		
 		Bounds startingAABB = targets [0].UpdateBounds ();
+		targets [0].UpdateVisibilityInfo (false);
 		Bounds allBounds = new Bounds (startingAABB.center, startingAABB.size);
 
 
 		foreach (CLTarget t in targets.Skip(1 )) {
 			allBounds.Encapsulate( t.UpdateBounds() );
+			t.UpdateVisibilityInfo (false);
 
 		}
-		allTargets.targetAABB = allBounds;
+		allTargets.boundingBox = allBounds;
 		return allBounds;
 	}
 
@@ -198,6 +200,36 @@ public abstract class CLCameraMan
 		return Mathf.Rad2Deg * fovY;
 
 	}
+
+	/// <summary>
+	/// finds max camera forward translation that keeps the target (allTarget) inside viewport with respect to x and y dimensions
+	/// (take the min of the two for ensuring the target stays inside). border diminishes the YFOV used to make computations, effectively
+	/// ensuring we stay clear of the viewport border by a certain percentage amount. WARNING: does not check for collisions of camera with objects
+	/// </summary>
+	/// <returns>The max zoom in viewport.</returns>
+	/// <param name="border">Border.</param>
+	public Vector2 FindMaxZoomInViewport ( float border=0.0f ) {
+
+		float vFOVrad = Mathf.Deg2Rad * unityCamera.fieldOfView * (1f - 2f*border);
+		float cameraHeightAt1 = Mathf.Tan(vFOVrad * 0.5f);
+		float hFOVrad = Mathf.Atan(cameraHeightAt1 * unityCamera.aspect) * 2f;
+		float cameraWidthAt1 = Mathf.Tan(hFOVrad * 0.5f);
+
+		allTargets.Render (this, true);
+
+		Vector2 result = new Vector2 (float.MaxValue, float.MaxValue);
+
+		foreach (Vector3 v in allTargets.visibleBBVertices) {
+			// find coordinates in camera space (v is in world space)
+			Vector3 v_Camera = unityCamera.transform.InverseTransformPoint( v ); // now v is in camera space
+			result.y = Mathf.Min (result.y, v_Camera.z - Mathf.Abs(v_Camera.y / cameraHeightAt1));
+			result.x = Mathf.Min (result.x, v_Camera.z - Mathf.Abs(v_Camera.x / cameraWidthAt1));
+		}
+
+		return result;
+	}
+
+
 
 }
 
@@ -267,9 +299,9 @@ public class CLLookAtCameraMan : CLCameraMan
 			candidatePos [1] = pos.y;
 			candidatePos [2] = pos.z;
 
-			candidatePos [3] = UnityEngine.Random.Range( t.targetAABB.min.x, t.targetAABB.max.x );
-			candidatePos [4] = UnityEngine.Random.Range( t.targetAABB.min.y, t.targetAABB.max.y );
-			candidatePos [5] = UnityEngine.Random.Range( t.targetAABB.min.z, t.targetAABB.max.z );
+			candidatePos [3] = UnityEngine.Random.Range( t.boundingBox.min.x, t.boundingBox.max.x );
+			candidatePos [4] = UnityEngine.Random.Range( t.boundingBox.min.y, t.boundingBox.max.y );
+			candidatePos [5] = UnityEngine.Random.Range( t.boundingBox.min.z, t.boundingBox.max.z );
 		}
 
 		return candidatePos;
@@ -324,6 +356,62 @@ public class CLOrbitCameraMan : CLCameraMan
 		
 	}
 
+	// given a property p whose sat>minSat for the current vcCam position and orientation, find max rotation interval [-v0,v1] such
+	// that rotating around cameraPivot will keep satisfaction above minSat (assumes that satisfaction of
+	// property is monotonic in the interval maxAngles
+	public Vector2 FindMaxYRotation( CLVisualProperty property, float minSat, Vector2 maxAngles, int steps = 10 ) {
+
+		// we will initially try to go from rotation 0 to maxAngles[1]; then, we go from 0 to maxAngles[0] (which should then
+		// be negative. For each interval, we rotate maxSteps times. As soon as the property is not enough satisfied for 
+		// two consecutive steps, we stop. 
+
+		Vector2 result = new Vector2 (0f, 0f);
+		bool satisfied = true;
+		float increment = (maxAngles [1] - maxAngles [0]) / steps;
+		float angle = 0f;
+
+		Vector3 startingPos = unityCamera.transform.position;
+		Quaternion startingOr = unityCamera.transform.rotation;
+
+		while (satisfied && angle < maxAngles [1]) {
+
+			angle += increment;
+
+			unityCamera.transform.position = startingPos;
+			unityCamera.transform.rotation = startingOr;
+			unityCamera.transform.RotateAround (pivot, Vector3.up, increment);
+
+			float sat = property.EvaluateSatisfaction( this, true);
+			if (sat < minSat) {
+
+				satisfied = false;
+			}
+		}
+		result [1] = angle-increment;
+		satisfied = true;
+		angle = 0f;
+
+		while (satisfied && angle > maxAngles [0]) {
+
+			angle -= increment;
+
+			unityCamera.transform.position = startingPos;
+			unityCamera.transform.rotation = startingOr;
+			unityCamera.transform.RotateAround (pivot, Vector3.up, increment);
+
+			float sat = property.EvaluateSatisfaction (this, true);
+			if (sat < minSat) {
+				satisfied = false;
+			}
+		}
+		result [0] = angle+increment;
+
+		return result;
+
+	}
+
+
+
 }
 
 
@@ -332,7 +420,7 @@ public class CLOrbitCameraMan : CLCameraMan
 /// Abstract class defining the domain of a VC problem. Subclasses then define specific representations
 /// depending on how we represent camera parameters (e.g. position + lookAt point, or spherical coordinates, or else).
 /// </summary> 
-public abstract class VCProblemDomain
+public abstract class VCCameraDomain
 {
 	/// <summary>
 	/// Camera YFOV bounds
@@ -355,16 +443,25 @@ public abstract class VCProblemDomain
 	public int layersToExclude;
 
 	/// <summary>
+	/// The ground y value. If 
+	/// </summary>
+	public float ground = float.MinValue;
+
+	/// <summary>
 	/// checks if the provided viewpoint is in the problem domain
 	/// </summary>
 	/// <returns><c>true</c>, if it is in search space, <c>false</c> otherwise.</returns>
 	/// <param name="cameraParams">viewpoint parameters (depend on specific viewpoint representation)</param>
 	public virtual bool InSearchSpace (float[] cameraParams) {
-		if (minGeometryDistance > 0.000001f) {
+		// check camera above ground
+		if (cameraParams [1] > ground) {
+			if (minGeometryDistance > 0.000001f) {
 
-			return !(Physics.CheckSphere( new Vector3( cameraParams[0], cameraParams[1], cameraParams[2] ), minGeometryDistance, ~layersToExclude ));
+				return !(Physics.CheckSphere (new Vector3 (cameraParams [0], cameraParams [1], cameraParams [2]), minGeometryDistance, ~layersToExclude));
+			} else
+				return true;
 		}
-		return true;
+		return false;
 
 	}
 
@@ -404,7 +501,7 @@ public abstract class VCProblemDomain
 /// Class defining the domain of a VC problem when camera parameters are expressed as position, lookAt point,
 /// roll, YFOV
 /// </summary> 
-public class VCLookAtProblemDomain : VCProblemDomain
+public class VCLookAtProblemDomain : VCCameraDomain
 {
 
 	/// <summary>
@@ -559,7 +656,7 @@ public class VCLookAtProblemDomain : VCProblemDomain
 /// <summary>
 /// Class defining the domain of a VC problem when camera parameters are expressed as pivot, distance, phi, theta, roll, YFOV
 /// </summary> 
-public class VCOrbitProblemDomain: VCProblemDomain
+public class VCOrbitProblemDomain: VCCameraDomain
 {
 
 

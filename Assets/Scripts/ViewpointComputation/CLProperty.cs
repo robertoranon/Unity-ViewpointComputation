@@ -27,6 +27,18 @@ public abstract class CLVisualProperty {
 	/// <param name="cameraMan">Camera man.</param>
 	/// <param name="threshold">Threshold for lazy evaluation. Defaults to non-lazy evaluation</param>
 	public abstract float EvaluateSatisfaction (CLCameraMan cameraMan, float threshold = -0.001f);
+
+	public float EvaluateSatisfaction(CLCameraMan cameraMan, bool renderTargets, float threshold = -0.001f) {
+
+		foreach (CLVisualProperty p in cameraMan.properties) {
+			p.evaluated = false;
+		}
+		foreach (CLTarget t in targets) {
+			t.rendered = false;
+		}
+		return EvaluateSatisfaction (cameraMan, 0.001f);
+
+	}
 	
 	/// <summary>
 	/// True if the property, in the current evaluation of a viewpoint, has already been evaluated
@@ -229,7 +241,7 @@ public abstract class CLGroundProperty : CLVisualProperty {
 				t.Render (camera);
 				t.rendered = true;
 			}
-			inScreenRatio = t.inScreenRatio * inScreenRatio;
+			inScreenRatio = t.screenRatio * inScreenRatio;
 		}
 		return inScreenRatio;
 		
@@ -327,19 +339,19 @@ public	class CLSizeProperty : CLGroundProperty
 				return Mathf.Min (targets [0].screenArea, satFunction.domain.y);
         
 			if (sizeType == SizeMode.WIDTH)
-				return Mathf.Min (targets [0].screenSpaceAABB.CalculateWidth (), satFunction.domain.y);
+				return Mathf.Min (targets [0].screenAABB.CalculateWidth (), satFunction.domain.y);
         
 			// else: height property
-			return Mathf.Min (targets [0].screenSpaceAABB.CalculateHeight (), satFunction.domain.y);
+			return Mathf.Min (targets [0].screenAABB.CalculateHeight (), satFunction.domain.y);
 		} else { // there are two targets, we report size of first with respect to second
 			if (sizeType == SizeMode.AREA)
 				return Mathf.Min (targets [0].screenArea / targets [1].screenArea, satFunction.domain.y);
         
 			if (sizeType == SizeMode.WIDTH)
-				return Mathf.Min (targets [0].screenSpaceAABB.CalculateWidth() / targets [1].screenSpaceAABB.CalculateWidth (), satFunction.domain.y);
+				return Mathf.Min (targets [0].screenAABB.CalculateWidth() / targets [1].screenAABB.CalculateWidth (), satFunction.domain.y);
         
 			// else: height property
-			return Mathf.Min (targets [0].screenSpaceAABB.CalculateHeight () / targets [1].screenSpaceAABB.CalculateHeight (), satFunction.domain.y);
+			return Mathf.Min (targets [0].screenAABB.CalculateHeight () / targets [1].screenAABB.CalculateHeight (), satFunction.domain.y);
 		}
 	}
         
@@ -419,7 +431,7 @@ public	class CLSizeProperty : CLGroundProperty
 				result.y = distance * Mathf.Cos (inclination);
 				result.z = distance * Mathf.Cos (azimuth) * Mathf.Sin (inclination);
             
-				result = result + targets [0].targetAABB.center;
+				result = result + targets [0].boundingBox.center;
             
 				if (camera.InSearchSpace( new float[] {result.x, result.y, result.z} )) {
 					found = true;
@@ -494,7 +506,7 @@ public class CLOcclusionProperty : CLGroundProperty
 	/// <param name="camera">Camera.</param>
 	public override float ComputeValue (CLCameraMan camera)
 	{
-		return Mathf.Min (targets [0].ComputeOcclusion (camera, frontBack, randomRayCasts), satFunction.domain.y);
+		return Mathf.Min (targets [0].ComputeOcclusion (camera, frontBack), satFunction.domain.y);
 	}
         
 
@@ -581,6 +593,217 @@ public class CLCameraOrientationProperty : CLGroundProperty
 
 
 /// <summary>
+/// Camera above plane property. Controls how much camera is above a certain plane
+/// </summary>
+public class CLCameraAbovePlaneProperty : CLGroundProperty
+{
+
+	/// <summary>
+	/// The reference camera plane ( )
+	/// </summary>
+	private Plane referencePlane;
+
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="CameraOrientationProperty"/> class.
+	/// </summary>
+	/// <param name="cameraOrientation">reference orientation.</param>
+	/// <param name="_name">property name</param>
+	/// <param name="_satXPoints">x points of the satisfaction linear spline</param>
+	/// <param name="_satYPoints">y points of the satisfaction linear spline</param>
+	public CLCameraAbovePlaneProperty (Plane _referencePlane, string _name, List<float> _satXPoints, List<float> _satYPoints) :
+	base ( _name, new List<CLTarget>() )
+	{
+		satFunction = new CLLinearSplineSatFunction (_satXPoints, _satYPoints);
+		cost = 1.0f;
+		referencePlane = new Plane (_referencePlane.normal, _referencePlane.distance);
+	}
+
+	public CLCameraAbovePlaneProperty (string _name) : base (_name, new List<CLTarget> ()){}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="CameraOrientationProperty"/> class.
+	/// </summary>
+	/// <param name="cameraOrientation">reference orientation.</param>
+	/// <param name="_name">property name</param>
+	/// <param name="_satFunction">sat function</param>
+	public CLCameraAbovePlaneProperty (Plane _referencePlane, string _name, CLSatFunction _satFunction) :
+	base ( _name, new List<CLTarget>(), _satFunction )
+	{
+		cost = 1.0f;
+		referencePlane = new Plane (_referencePlane.normal, _referencePlane.distance);
+	}
+
+
+	/// <summary>
+	/// Computes the value of the property. In this case, a signed distance from the plane (positive if we are on the same side of the normal)
+	/// </summary>
+	/// <returns>The computed angle</returns>
+	/// <param name="camera">Camera.</param>
+	public override float ComputeValue (CLCameraMan camera)
+	{
+		return referencePlane.GetDistanceToPoint (camera.unityCamera.transform.position);
+	}
+
+
+	/// <summary>
+	/// Generates a random viewpoint position that satisfies the property to some degree, with more probability where
+	/// satisfaction is higher
+	/// </summary>
+	/// <returns>The random satisfying position.</returns>
+	/// <param name="camera">Camera.</param>
+	public override Vector3 GenerateRandomSatisfyingPosition (CLCameraMan camera)
+	{
+		return new Vector3 (0.0f, 0.0f, 0.0f);
+	}
+
+}
+
+
+/// <summary>
+/// Camera distance property. Its value is how much camera is distant from a certain point
+/// </summary>
+public class CLCameraDistanceProperty : CLGroundProperty
+{
+
+	/// <summary>
+	/// The reference camera position.
+	/// </summary>
+	private Vector3 referencePosition;
+
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="CameraOrientationProperty"/> class.
+	/// </summary>
+	/// <param name="cameraOrientation">reference orientation.</param>
+	/// <param name="_name">property name</param>
+	/// <param name="_satXPoints">x points of the satisfaction linear spline</param>
+	/// <param name="_satYPoints">y points of the satisfaction linear spline</param>
+	public CLCameraDistanceProperty (Vector3 _referencePosition, string _name, List<float> _satXPoints, List<float> _satYPoints) :
+	base ( _name, new List<CLTarget>() )
+	{
+		satFunction = new CLLinearSplineSatFunction (_satXPoints, _satYPoints);
+		cost = 1.0f;
+		referencePosition = new Vector3 (_referencePosition.x, _referencePosition.y, _referencePosition.z);
+	}
+
+	public CLCameraDistanceProperty (string _name) : base (_name, new List<CLTarget> ()){}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="CameraOrientationProperty"/> class.
+	/// </summary>
+	/// <param name="cameraOrientation">reference orientation.</param>
+	/// <param name="_name">property name</param>
+	/// <param name="_satFunction">sat function</param>
+	public CLCameraDistanceProperty (Vector3 _referencePosition, string _name, CLSatFunction _satFunction) :
+	base ( _name, new List<CLTarget>(), _satFunction )
+	{
+		cost = 1.0f;
+		referencePosition = new Vector3 (_referencePosition.x, _referencePosition.y, _referencePosition.z);
+	}
+
+
+	/// <summary>
+	/// Computes the value of the property. In this case, the distance between the camera and the reference position
+	/// </summary>
+	/// <returns>The computed angle</returns>
+	/// <param name="camera">Camera.</param>
+	public override float ComputeValue (CLCameraMan camera)
+	{
+		return Vector3.Distance(referencePosition, camera.unityCamera.transform.position);
+	}
+
+
+	/// <summary>
+	/// Generates a random viewpoint position that satisfies the property to some degree, with more probability where
+	/// satisfaction is higher
+	/// </summary>
+	/// <returns>The random satisfying position.</returns>
+	/// <param name="camera">Camera.</param>
+	public override Vector3 GenerateRandomSatisfyingPosition (CLCameraMan camera)
+	{
+		return new Vector3 (0.0f, 0.0f, 0.0f);
+	}
+
+}
+
+
+/// <summary>
+/// Camera sees point property. Basically checks whether a point is visible from the camera (1) or not (0)
+/// </summary>
+public class CLCameraSeesPointProperty : CLGroundProperty
+{
+
+	/// <summary>
+	/// The point to be checked.
+	/// </summary>
+	private Vector3 point;
+
+	/// <summary>
+	/// The layer mask.
+	/// </summary>
+	private int layerMask;
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="CameraOrientationProperty"/> class.
+	/// </summary>
+	/// <param name="point">point to check.</param>
+	/// <param name="_name">property name</param>
+	/// <param name="_satXPoints">x points of the satisfaction linear spline</param>
+	/// <param name="_satYPoints">y points of the satisfaction linear spline</param>
+	public CLCameraSeesPointProperty (Vector3 _point, int _layerMask,  string _name, List<float> _satXPoints, List<float> _satYPoints) :
+	base ( _name, new List<CLTarget>() )
+	{
+		satFunction = new CLLinearSplineSatFunction (_satXPoints, _satYPoints);
+		cost = 1.0f;
+		point = _point;
+		layerMask = ~_layerMask;
+	}
+
+	public CLCameraSeesPointProperty (string _name) : base (_name, new List<CLTarget> ()){}
+
+	/// <summary>
+	/// Initializes a new instance of the <see cref="CameraOrientationProperty"/> class.
+	/// </summary>
+	/// <param name="cameraOrientation">reference orientation.</param>
+	/// <param name="_name">property name</param>
+	/// <param name="_satFunction">sat function</param>
+	public CLCameraSeesPointProperty (Vector3 _point, int _layerMask,  string _name, CLSatFunction _satFunction) :
+	base ( _name, new List<CLTarget>(), _satFunction )
+	{
+		cost = 1.0f;
+		point = _point;
+		layerMask = ~_layerMask;
+	}
+
+
+	/// <summary>
+	/// Computes the value of the property. In this case, the angle between the provided reference camera rotation, and the rotation of the camera
+	/// </summary>
+	/// <returns>The computed angle</returns>
+	/// <param name="camera">Camera.</param>
+	public override float ComputeValue (CLCameraMan camera)
+	{
+		bool result = Physics.Linecast( point, camera.unityCamera.transform.position, layerMask );
+		return result ? 0.0f : 1.0f;
+	}
+
+
+	/// <summary>
+	/// Generates a random viewpoint position that satisfies the property to some degree, with more probability where
+	/// satisfaction is higher
+	/// </summary>
+	/// <returns>The random satisfying position.</returns>
+	/// <param name="camera">Camera.</param>
+	public override Vector3 GenerateRandomSatisfyingPosition (CLCameraMan camera)
+	{
+		return new Vector3 (0.0f, 0.0f, 0.0f);
+	}
+
+}
+
+
+/// <summary>
 /// Camera FOV property.
 /// </summary>
 public class CLCameraFOVProperty : CLGroundProperty
@@ -647,7 +870,7 @@ public class CLTargetPositionProperty : CLGroundProperty
 
 
 	/// <summary>
-	/// Initializes a new instance of the <see cref="FramingProperty"/> class.
+	/// Initializes a new instance of the <see cref="CLTargetPositionProperty"/> class.
 	/// </summary>
 	/// <param name="_position">position on viewport (normalized in [0,1] in both dimensions)</param>
 	/// <param name="_name">property name</param>
@@ -663,7 +886,7 @@ public class CLTargetPositionProperty : CLGroundProperty
 	}
 
 	/// <summary>
-	/// Initializes a new instance of the <see cref="FramingProperty"/> class.
+	/// Initializes a new instance of the <see cref="CLTargetPositionProperty"/> class.
 	/// </summary>
 	/// <param name="_position">position on viewport (normalized in [0,1] in both dimensions)</param>
 	/// <param name="_name">property name</param>
@@ -687,7 +910,7 @@ public class CLTargetPositionProperty : CLGroundProperty
 	public override float ComputeValue (CLCameraMan camera)
 	{
 		// compute projection of target center
-		Vector3 projectedCenter = camera.unityCamera.WorldToViewportPoint (targets[0].targetAABB.center);
+		Vector3 projectedCenter = camera.unityCamera.WorldToViewportPoint (targets[0].boundingBox.center);
 		// compute distance from desidered point
 		float distance = (position - new Vector2( projectedCenter[0], projectedCenter[1])).magnitude;
 
@@ -841,14 +1064,14 @@ public class CLOrientationProperty : CLGroundProperty
 	{
 		Vector3 viewTarget;
 		// world target to camera
-		Vector3 targetToCamera = (camera.unityCamera.transform.position - targets [0].targetAABB.center).normalized;
+		Vector3 targetToCamera = (camera.unityCamera.transform.position - targets [0].boundingBox.center).normalized;
 		// we must now convert it to 
 		
 		float angle;
 	
 		if (orientation == OrientationMode.HORIZONTAL) {
 			// retrieve local up vector for the target
-			Vector3 up = targets [0].gameObjectRef.transform.up.normalized;
+			Vector3 up = targets [0].gameObject.transform.up.normalized;
 		
 			// up is the normal of the horizontal plane of the target
 			// we project targetToCamera to the horizontal plane using
@@ -899,7 +1122,7 @@ public class CLOrientationProperty : CLGroundProperty
 			if (orientation == OrientationMode.HORIZONTAL) {
 				result.x = Mathf.Sin (Mathf.Deg2Rad * x) * distance;
 				result.z = Mathf.Cos (Mathf.Deg2Rad * x) * distance;
-				result = targets [0].gameObjectRef.transform.TransformPoint (result);
+				result = targets [0].gameObject.transform.TransformPoint (result);
 				result.y = height;
 			} else {  // VERTICAL
 				// generate a random theta in cilindrical coordinates
@@ -911,7 +1134,7 @@ public class CLOrientationProperty : CLGroundProperty
 				result.y = Mathf.Sin (phi) * Mathf.Sin (theta) * distance;
 				result.z = Mathf.Cos (phi) * distance;
             
-				result = targets [0].gameObjectRef.transform.TransformPoint (result);
+				result = targets [0].gameObject.transform.TransformPoint (result);
 			}
         
 			// if we are in problem bounds, ok - otherwise we throw away the point and generate a new one
@@ -1002,16 +1225,16 @@ public class CLRelativePositionProperty : CLGroundProperty
 	{
 		
 		if (positionType == RelativePositionMode.LEFT)
-			return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (0.0f, targets [1].screenSpaceAABB.xMin, 0.0f, 1.0f));
+			return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (0.0f, targets [1].screenAABB.xMin, 0.0f, 1.0f));
 		
 		if (positionType == RelativePositionMode.BELOW)
-			return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (0.0f, 1.0f, 0.0f, targets [1].screenSpaceAABB.yMin));
+			return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (0.0f, 1.0f, 0.0f, targets [1].screenAABB.yMin));
 		
 		if (positionType == RelativePositionMode.RIGHT)
-			return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (targets [1].screenSpaceAABB.xMax, 1.0f, 0.0f, 1.0f));
+			return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (targets [1].screenAABB.xMax, 1.0f, 0.0f, 1.0f));
 			
 		// else: ABOVE property
-		return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (0.0f, 1.0f, targets [1].screenSpaceAABB.yMax, 1.0f));
+		return targets [0].ComputeRatioInsideFrame (camera, new Rectangle (0.0f, 1.0f, targets [1].screenAABB.yMax, 1.0f));
 		
 	}
         

@@ -28,7 +28,7 @@ public class CLTarget
 	/// <summary>
 	/// The Unity game object to which the target corresponds. 
 	/// </summary>    
-	public GameObject gameObjectRef;
+	public GameObject gameObject;
 
 
 	/// <summary>
@@ -44,36 +44,18 @@ public class CLTarget
 	/// </summary>    
 	public List<GameObject> colliders;
 
+
 	/// <summary>
-	/// The colliders layers.
+	/// This list contains, for each collider in the colliders' list, the corresponding layer. We need this because we change layers
+	/// during visibility evaluation.
 	/// </summary>
-	public List<int> collidersLayers;
-
-	/// <summary>
-	/// Screen-space 2D AABB (in viewport coordinates) of the projection of the target (its AABB). 
-	/// Computed at solving time for a specific camera.
-	/// </summary>  
-	public Rectangle screenSpaceAABB;
+	public List<int> collidersLayers=new List<int> ();
 
 
 	/// <summary>
-	/// Area (in viewport coordinates) of the projected AABB. 
-	/// Computed at solving time for a specific camera.
+	/// world-space AABB of the target
 	/// </summary>  
-	public float screenArea;
-
-
-	/// <summary>
-	/// How much the target is in screen, i.e. area(viewport-clipped projection of the target)/area(projection of the target). 
-	/// Computed at solving time for a specific camera.
-	/// </summary>  
-	public float inScreenRatio;
-
-
-	/// <summary>
-	/// AABB of the target
-	/// </summary>  
-	public Bounds targetAABB;
+	public Bounds boundingBox;
 
 
 	/// <summary>
@@ -89,21 +71,9 @@ public class CLTarget
 
 
 	/// <summary>
-	/// Contribution of the target to properties satisfaction. Computed at solving time for a specific problem.
-	/// </summary>  
-	public float contribution;
-
-
-	/// <summary>
-	/// Cost to evaluate the properties that refer to the target. Computed at solving time for a specific problem.
-	/// </summary>  
-	public float evaluationCost;
-
-
-	/// <summary>
 	/// List of ground properties in which the target appears
 	/// </summary>  
-	public List<CLGroundProperty> targetProperties;
+	public List<CLGroundProperty> groundProperties = new List<CLGroundProperty> ();
 
 
 	/// <summary>
@@ -114,83 +84,324 @@ public class CLTarget
 
 
 	/// <summary>
-	/// Number of visible vertices of the target AABB. Computed at solving time for a specific camera.
+	/// Number of visible vertices of the target AABB. Computed by render method for a specific camera.
 	/// </summary>  
 	private int numVisibleBBVertices;
 
-	/// <summary>
-	/// Visible vertices of the AABB, projected. Computed at solving time for a specific camera.
-	/// </summary>  
-	private List<Vector2> screenRepresentation;
 
 	/// <summary>
-	/// Sets the target AABB, and computes bounding sphere radius
+	/// Visible vertices of the target AABB. Computed by render method for a specific camera.
 	/// </summary>  
-	/// <param name='AABB'>new AABB.</param>
-	public void SetBoundingVolume (Bounds AABB)
-	{
-		targetAABB = AABB;
-		radius = Mathf.Max (AABB.extents [0], Mathf.Max (AABB.extents [1], AABB.extents [2]));
-		screenRepresentation = new List<Vector2> (10);
-	}
+	public List<Vector3> visibleBBVertices = new List<Vector3> (10);
+
+
+	/// <summary>
+	/// Visible vertices of the AABB, projected. Computed by render method for a specific camera.
+	/// </summary>  
+	private List<Vector2> screenRepresentation = new List<Vector2> (10);
+
+
+	/// <summary>
+	/// Screen-space 2D AABB (in viewport coordinates) of the projection of the target. 
+	/// Computed by render method for a specific camera.
+	/// </summary>  
+	public Rectangle screenAABB;
+
+
+	/// <summary>
+	/// Area (in viewport coordinates) of the projected AABB. 
+	/// Computed by render method for a specific camera.
+	/// </summary>  
+	public float screenArea;
+
+
+	/// <summary>
+	/// How much the target is in screen, i.e. area(viewport-clipped projection of the target)/area(projection of the target). 
+	/// Computed by render method for a specific camera.
+	/// </summary>  
+	public float screenRatio;
+
 
 	/// <summary>
 	/// how many rays to use for ray casting
 	/// </summary>  
 	private int nRays;
 
+
 	/// <summary>
 	/// bit mask for ray casting with 0s in correspondance of layers to ignore
 	/// </summary>  
 	private int layerMask;
 
+
 	/// <summary>
-	/// List of points to be used for visibility checking
+	/// List of points that can be used for visibility checking
 	/// </summary>
 	public List<Vector3> visibilityPoints;
 
+
+	/// <summary>
+	/// List of points that WILL be used for visibility checking. These are a subset of
+	/// visibilityPoints, already in world space
+	/// </summary>
+	public List<Vector3> actualVisibilityPoints=new List<Vector3> ();
 
 
 	/// <summary>
 	/// Whether to use renderers (true) or colliders (false) to compute bounding boxes
 	/// </summary>
-	public bool useRendererForBoundingBoxes;
+	public bool useRenderersForSize;
+
+
+	/// <summary>
+	/// Visibility point generation method
+	/// </summary>
+	public enum VisibilityPointGenerationMethod
+	{
+		RANDOM,         // visibility points are randomly generated
+		UNIFORM_IN_BB,  // visibility points are generated uniformly inside bounding box
+		ON_MESH         // visibility points are generated uniformly on target mesh
+	}
+
+
+	/// <summary>
+	/// The adopted visibility point generation method
+	/// </summary>
+	public VisibilityPointGenerationMethod visibilityPointGeneration;
+
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="CLTarget"/> class.
 	/// </summary>
-	public CLTarget() {}
+	public CLTarget() {
+
+
+
+	}
+
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="CLTarget"/> class.
 	/// </summary>
 	/// <param name="layersToExclude">Layers to exclude for ray casting</param>
-	/// <param name="sceneObj"> Corresponding scene object.</param>
-	/// <param name="_renderables">Renderables (list of objects from which AABB is computed)</param>
+	/// <param name="sceneObj">Corresponding scene object.</param>
+	/// <param name="_renderables">Renderables (list of objects from which AABB is computed). If empty, we use colliders.</param>
 	/// <param name="_colliders">Colliders (list of objects to be used for ray casting)</param>
-	/// <param name="_useRendererForBoundingBoxes">If set to <c>true</c> use renderer for bounding boxes, otherwise we use colliders</param>
 	/// <param name="_nRays">number of rays to use for checking visibility</param>
-	public CLTarget (int layersToExclude, GameObject sceneObj, List<GameObject> _renderables, List<GameObject> _colliders, bool _useRendererForBoundingBoxes = true, int _nRays = 8 )
+	public CLTarget (GameObject sceneObj, List<GameObject> _renderables, List<GameObject> _colliders, int layersToExclude = 1 << 2, 
+		VisibilityPointGenerationMethod _visibilityPointGeneration = VisibilityPointGenerationMethod.ON_MESH, int _nRays = 8 )
 	{
 
-		layerMask = ~layersToExclude;
-		renderables = new List<GameObject>( _renderables );
-		colliders = new List<GameObject>( _colliders );
-		targetProperties = new List<CLGroundProperty> ();
-		gameObjectRef = sceneObj;
-		nRays = _nRays;
-		useRendererForBoundingBoxes = _useRendererForBoundingBoxes;
+		gameObject = sceneObj;
 		name = sceneObj.name;
-		// builds list of points to be used for ray casting
-		visibilityPoints = new List<Vector3>(nRays);
-		screenRepresentation = new List<Vector2> ();
 
-		collidersLayers = new List<int> ();
+		if ( _renderables.Count > 0 ) {
+			renderables = new List<GameObject>( _renderables );
+			useRenderersForSize = true;
+		}
+		else {
+			useRenderersForSize = false;
+		}
+		colliders = new List<GameObject>( _colliders );
+		nRays = _nRays;
+		layerMask = ~layersToExclude;
+		visibilityPointGeneration = _visibilityPointGeneration;
+
+
 		foreach (GameObject g in colliders) {
 
 			collidersLayers.Add (g.layer);
 
 		}
+
+		UpdateBounds ();
+
+		PreComputeVisibilityPoints (false, Math.Max(2* colliders.Count, 50));
+
+	}
+
+
+
+	/// <summary>
+	/// Precomputes a number of visibility points inside the target BB, to be used later for visibility checking.
+	/// Visibility points are generated according to the chosen method (value of visibilityPointGeneration member)
+	/// We generate 50 visibility points (this could be a parameter ...)
+	/// </summary>
+	/// <param name="standingOnGround">If set to <c>true</c> standing on ground.</param>
+	private void PreComputeVisibilityPoints( bool standingOnGround, int numberofPoints = 50 ) {
+
+		visibilityPoints = new List<Vector3> (numberofPoints);
+
+
+		switch (visibilityPointGeneration) {
+
+		case VisibilityPointGenerationMethod.ON_MESH:
+			{
+
+				// remove everything in scene except target (it should be enough to simply move the target to a special layer)
+
+				foreach (GameObject go in colliders) {
+					go.layer = LayerMask.NameToLayer ("CameraControl");
+				}
+
+				// find target center, and proper distance such that target is entirely on screen from every angle
+				float d = radius / Mathf.Tan( 50.0f); // supposing a h-fow of 100
+
+				// compute n points on unit sphere 
+				List<Vector3> samples = TargetUtils.ComputePointsOnSphere( numberofPoints, boundingBox.center, radius );
+
+				// for visibility: cast 1 ray from each point to center, save point of intersection
+				foreach (Vector3 point in samples) {
+
+					RaycastHit hitPoint;
+					bool hit = Physics.Linecast (point, boundingBox.center, out hitPoint, 1 << LayerMask.NameToLayer ("CameraControl"));
+
+					if (hit) {
+						visibilityPoints.Add (hitPoint.point);
+
+					}
+
+				}
+
+
+
+				break;
+
+			}
+
+		case VisibilityPointGenerationMethod.UNIFORM_IN_BB:
+			{ 
+				// We take the AABB, and choose a number of points inside it . For simplicity, we allow only an odd number of rays. 
+				// For more than 9 points, we move to random generation
+
+				visibilityPoints.Add (boundingBox.center);
+
+				if (numberofPoints > 1 && numberofPoints < 10) {  // add two points along the longest dimension of the AABB
+
+					float[] extents = new float[]{ boundingBox.extents.x, boundingBox.extents.y, boundingBox.extents.z };
+					int[] indices = new int[]{ 0, 1, 2 };
+					Array.Sort (extents, indices);
+					int longest = indices [2];
+					int secondLongest = indices [1];
+					int shortest = indices [0];
+
+					Vector3 p1 = boundingBox.center;
+					p1 [longest] = 0.25f * boundingBox.min [longest] + 0.75f * boundingBox.max [longest];
+		
+					Vector3 p2 = boundingBox.center;
+					p2 [longest] = 0.75f * boundingBox.min [longest] + 0.25f * boundingBox.max [longest];
+
+					if (numberofPoints > 3) {
+
+						Vector3 p3 = boundingBox.center;
+						p3 [secondLongest] = 0.75f * boundingBox.min [secondLongest] + 0.25f * boundingBox.max [secondLongest];
+
+						Vector3 p4 = boundingBox.center;
+						p4 [secondLongest] = 0.25f * boundingBox.min [secondLongest] + 0.75f * boundingBox.max [secondLongest];
+
+						if (numberofPoints > 5) {
+
+							p1 [secondLongest] = 0.25f * boundingBox.min [secondLongest] + 0.75f * boundingBox.max [secondLongest];
+							p1 [shortest] = 0.25f * boundingBox.min [shortest] + 0.75f * boundingBox.max [shortest];
+
+							p2 [secondLongest] = 0.25f * boundingBox.min [secondLongest] + 0.75f * boundingBox.max [secondLongest];
+							p2 [shortest] = 0.25f * boundingBox.min [shortest] + 0.75f * boundingBox.max [shortest];
+
+							p3 [shortest] = 0.25f * boundingBox.min [shortest] + 0.75f * boundingBox.max [shortest];
+
+							p4 [shortest] = 0.75f * boundingBox.min [shortest] + 0.25f * boundingBox.max [shortest];
+
+							Vector3 p5 = boundingBox.center;
+							p5 [longest] = 0.25f * boundingBox.min [longest] + 0.75f * boundingBox.max [longest];
+							p5 [secondLongest] = 0.75f * boundingBox.min [secondLongest] + 0.25f * boundingBox.max [secondLongest];
+							p5 [shortest] = 0.75f * boundingBox.min [shortest] + 0.25f * boundingBox.max [shortest];
+
+							Vector3 p6 = boundingBox.center;
+							p6 [longest] = 0.75f * boundingBox.min [longest] + 0.25f * boundingBox.max [longest];
+							p6 [secondLongest] = 0.75f * boundingBox.min [secondLongest] + 0.25f * boundingBox.max [secondLongest];
+							p6 [shortest] = 0.75f * boundingBox.min [shortest] + 0.25f * boundingBox.max [shortest];
+
+							if (numberofPoints == 9) {
+								
+								p3 [longest] = 0.75f * boundingBox.min [longest] + 0.25f * boundingBox.max [longest];
+
+								p4 [longest] = 0.25f * boundingBox.min [longest] + 0.75f * boundingBox.max [longest];
+
+								Vector3 p7 = boundingBox.center;
+								p7 [longest] = 0.25f * boundingBox.min [longest] + 0.75f * boundingBox.max [longest];
+								p7 [secondLongest] = 0.75f * boundingBox.min [secondLongest] + 0.25f * boundingBox.max [secondLongest];
+								p7 [shortest] = 0.25f * boundingBox.min [shortest] + 0.75f * boundingBox.max [shortest];
+
+								Vector3 p8 = boundingBox.center;
+								p8 [longest] = 0.75f * boundingBox.min [longest] + 0.25f * boundingBox.max [longest];
+								p8 [secondLongest] = 0.25f * boundingBox.min [secondLongest] + 0.75f * boundingBox.max [secondLongest];
+								p8 [shortest] = 0.75f * boundingBox.min [shortest] + 0.25f * boundingBox.max [shortest];
+
+								visibilityPoints.Add (p7);
+								visibilityPoints.Add (p8);
+
+							}
+
+							visibilityPoints.Add (p5);
+							visibilityPoints.Add (p6);
+
+						}
+
+						visibilityPoints.Add (p3);
+						visibilityPoints.Add (p4);
+
+					}
+
+
+					visibilityPoints.Add (p1);
+					visibilityPoints.Add (p2);
+				} else {
+
+					visibilityPointGeneration = VisibilityPointGenerationMethod.RANDOM;
+
+				}
+			
+				break; 
+
+			}
+
+		case ( VisibilityPointGenerationMethod.RANDOM ):
+			{  // random generation, corresponds to VisibilityPointGenerationMethod.RANDOM
+
+				if (numberofPoints >= colliders.Count) {
+					// assign 1 random point per collider, until they are over
+					int colliderIndex = 0;
+					while (numberofPoints > 0) {
+
+						Vector3 newPoint = TargetUtils.RandomPointInsideBounds (colliders [colliderIndex].GetComponent<Collider> ().bounds);
+						visibilityPoints.Add (newPoint);
+						colliderIndex = (colliderIndex + 1) % colliders.Count;
+						numberofPoints--;
+					}
+				} else {  // if we have more colliders than points, then let's consider the AABB of the target assign points inside it. Not ideal, but...
+					
+					while (numberofPoints > 0) {
+
+						Vector3 newPoint = TargetUtils.RandomPointInsideBounds (boundingBox);
+						visibilityPoints.Add (newPoint);
+						numberofPoints--;
+					}
+
+				}
+
+				break;
+
+			}
+
+
+		default:
+			{
+
+				Debug.Log ("Warning: NO visibility points computed for target " + name);
+				break;
+			}
+		}
+
 
 	}
 
@@ -205,6 +416,7 @@ public class CLTarget
 	{
 
 		screenRepresentation.Clear ();
+		visibleBBVertices.Clear ();
 
 		/**
 		 *   ok, so ... using the world-space AABB of the game object is not ideal because it appears it is the world AABB 
@@ -217,7 +429,7 @@ public class CLTarget
 		// world position of the camera
 		Vector3 eye = camera.unityCamera.transform.position;
 
-		Bounds AABB = targetAABB;
+		Bounds AABB = boundingBox;
 
 		// World-space min-max corners of the target's AABB
 		Vector3 minCorner = AABB.min;
@@ -237,8 +449,8 @@ public class CLTarget
 		numVisibleBBVertices = TargetUtils.Number (pos);
 		if (numVisibleBBVertices == 0) {
 			this.screenArea = 0.0f;
-			screenSpaceAABB = new Rectangle (0.0f, 0.0f, 0.0f, 0.0f);
-			inScreenRatio = 0.0f;
+			screenAABB = new Rectangle (0.0f, 0.0f, 0.0f, 0.0f);
+			screenRatio = 0.0f;
 			return;
 		}
 
@@ -251,9 +463,11 @@ public class CLTarget
 		// project each visibile vertex
 		for (int i = 0; i < numVisibleBBVertices; i++) {
 
-			Vector3 newPoint = camera.unityCamera.WorldToViewportPoint (TargetUtils.ReturnAABBVertex (TargetUtils.Vertex (i, pos), AABB));
-			if (newPoint.z >= 0) {
-				projectedBBVertices.Add (newPoint);
+			Vector3 visibleVertex = TargetUtils.ReturnAABBVertex (TargetUtils.Vertex (i, pos), AABB);
+			Vector3 projectedVertex = camera.unityCamera.WorldToViewportPoint (visibleVertex);
+			if (projectedVertex.z >= 0) {
+				projectedBBVertices.Add (projectedVertex);
+				visibleBBVertices.Add (visibleVertex);
 				//Debug.Log ( newPoint.ToString("F5"));
 			} else {
 				behindCamera = true;	
@@ -269,8 +483,8 @@ public class CLTarget
 		// if there are less than three vertices on screen, area is zero
 		if (screenRepresentation.Count < 3) {
 			this.screenArea = 0;
-			screenSpaceAABB = new Rectangle (0.0f, 0.0f, 0.0f, 0.0f);
-			inScreenRatio = 0.0f;
+			screenAABB = new Rectangle (0.0f, 0.0f, 0.0f, 0.0f);
+			screenRatio = 0.0f;
 		} else {
 			// compute area
 			this.screenArea = Mathf.Min (TargetUtils.ComputeScreenArea (screenRepresentation), 1.0f);	
@@ -291,21 +505,21 @@ public class CLTarget
 					maxPoint.y = screenRepresentation [i].y;
 			}
 
-			screenSpaceAABB = new Rectangle (minPoint.x, maxPoint.x, minPoint.y, maxPoint.y);
+			screenAABB = new Rectangle (minPoint.x, maxPoint.x, minPoint.y, maxPoint.y);
 
 			if (!behindCamera)
-				inScreenRatio = this.screenArea / TargetUtils.ComputeScreenArea (projectedBBVertices);
+				screenRatio = this.screenArea / TargetUtils.ComputeScreenArea (projectedBBVertices);
 			else 
-				inScreenRatio = 0.5f;  // this is just a hack since otherwise bb projected points behind camera
+				screenRatio = 0.5f;  // this is just a hack since otherwise bb projected points behind camera
 			// are simply thrown away and the target, while partially on screen, 
 			// could be considered entirely on screen
 
-			if (inScreenRatio > 1.0f && performClipping) {
-				inScreenRatio = 0.0f;
+			if (screenRatio > 1.0f && performClipping) {
+				screenRatio = 0.0f;
 			}
-			else if (inScreenRatio > 1.0f) {
+			else if (screenRatio > 1.0f) {
 				// this means we have no clipping and the projected AABB is greater than the viewport
-				inScreenRatio = 1.0f;
+				screenRatio = 1.0f;
 			}
 
 
@@ -332,40 +546,29 @@ public class CLTarget
 
 
 	/// <summary>
-	/// Computes how much the target is occluded by other objects by shooting N rays randomly inside the AABB of the target.
-	/// Current strategy is 1 ray to the center plus nRays-1 random rays
+	/// Computes how much the target is occluded by other objects by shooting rays and checking intersections with colliders
 	/// </summary>  
-	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = false, bool randomRayCasts=false)
+	public float ComputeOcclusion (CLCameraMan camera, bool frontBack = false, int _nRays = 0)
 	{
+
+		if (this.gameObject.layer == LayerMask.NameToLayer ("Overlay")) {
+			return 0.0f;
+		}
 
 		float result = 0.0f;
 		RaycastHit hitFront;
 		RaycastHit hitBack;
 		List<Vector3> points = new List<Vector3> ();
-		int n = nRays;  
-		for (int i = 0; i<n; i++) {
-
-			if (!randomRayCasts) {
-
-				points.Add (visibilityPoints [i]);
-
-			} else {
-
-				points.Add (new Vector3 (UnityEngine.Random.Range (targetAABB.min.x, targetAABB.max.x),
-					UnityEngine.Random.Range (targetAABB.min.y, targetAABB.max.y),
-					UnityEngine.Random.Range (targetAABB.min.z, targetAABB.max.z)));
-			}
-		}
-
+		int n = _nRays > 0? nRays: actualVisibilityPoints.Count;  
 		// now move all colliders to layer 2 (ignore ray cast)
 		foreach (GameObject go in colliders) {
 			go.layer = 2;
 		}
 
 
-		// now raycast from camera to each point
-		foreach ( Vector3 p in points )
-		{
+		for (int i = 0; i<n; i++) {
+			Vector3 p = actualVisibilityPoints[i];
+		
 			bool isOccludedFront = Physics.Linecast (camera.unityCamera.transform.position, p, out hitFront, layerMask);
 
 			if (isOccludedFront ) {
@@ -401,16 +604,16 @@ public class CLTarget
 		switch (axis) {
 		case TargetUtils.Axis.RIGHT:
 			// we use the local coordinate system of the gameobject in gameObjectRef
-			v2 = gameObjectRef.transform.right;
+			v2 = gameObject.transform.right;
 			break;
 		case TargetUtils.Axis.UP:
-			v2 = gameObjectRef.transform.up;
+			v2 = gameObject.transform.up;
 			break;
 		case TargetUtils.Axis.WORLD_UP:
 			v2 = Vector3.up;
 			break;
 		default: // forward
-			v2 = gameObjectRef.transform.forward;
+			v2 = gameObject.transform.forward;
 			break;
 		}
 
@@ -454,7 +657,7 @@ public class CLTarget
 			float phi = 0.0f;
 			float theta=0.0f;
 
-			foreach (CLGroundProperty p in targetProperties) {
+			foreach (CLGroundProperty p in groundProperties) {
 
 				if (p is CLSizeProperty) {
 
@@ -581,39 +784,50 @@ public class CLTarget
 		result.y = distance * Mathf.Cos (theta);
 		result.z = distance * Mathf.Cos (phi) * Mathf.Sin (theta); 
 
-		Vector3 shift = targetAABB.center - gameObjectRef.transform.position;
+		Vector3 shift = boundingBox.center - gameObject.transform.position;
 		//Debug.Log (shift.magnitude);
 
 		// now check that we are inside bounds
 		// invert scale 
-		Vector3 scaledResult = new Vector3 (1 / gameObjectRef.transform.lossyScale.x,
-			1 / gameObjectRef.transform.lossyScale.y,
-			1 / gameObjectRef.transform.lossyScale.z);
+		Vector3 scaledResult = new Vector3 (1 / gameObject.transform.lossyScale.x,
+			1 / gameObject.transform.lossyScale.y,
+			1 / gameObject.transform.lossyScale.z);
 
-		result = gameObjectRef.transform.TransformPoint (Vector3.Scale(result, scaledResult)) + shift;
+		result = gameObject.transform.TransformPoint (Vector3.Scale(result, scaledResult)) + shift;
 
 		return result;
 	}
 
 
 	/// <summary>
-	/// Updates the AABB and BS based on renderables / collliders bounds
+	/// Updates the AABB and BS based on provided AABB, or computes them from renderables / collliders bounds
 	/// </summary>
 	/// <returns>The bounds.</returns>
-	public Bounds UpdateBounds () 
+	public Bounds UpdateBounds( Bounds b) {
+
+		boundingBox = b;
+		UpdateVisibilityInfo ( false );
+		radius = boundingBox.extents.magnitude;
+		return boundingBox;
+
+	}
+
+
+	/// <summary>
+	/// Updates the AABB and BS based on provided AABB, or computes them from renderables / collliders bounds
+	/// </summary>
+	/// <returns>The bounds.</returns>
+	public Bounds UpdateBounds ()
 	{
-
-		Bounds result;
-
-		if (useRendererForBoundingBoxes) {
+		
+		if (useRenderersForSize) {
 
 			Bounds targetBounds = new Bounds (renderables [0].GetComponent<Renderer> ().bounds.center, renderables [0].GetComponent<Renderer> ().bounds.size);
 			foreach (GameObject renderable in renderables.Skip(1 )) {
 				targetBounds.Encapsulate (renderable.GetComponent<Renderer> ().bounds);
 			}
-			SetBoundingVolume (targetBounds);
 
-			result = targetBounds;
+			boundingBox = targetBounds;
 
 		} else {
 
@@ -621,280 +835,39 @@ public class CLTarget
 			foreach (GameObject collider in colliders.Skip(1 )) {
 				targetBounds.Encapsulate (collider.GetComponent<Collider> ().bounds);
 			}
-			SetBoundingVolume (targetBounds);
-
-			result = targetBounds;
+					
+			boundingBox = targetBounds;
 
 		}
 
-		// update visibility points
-		visibilityPoints.Clear();
-		// determine longest extent of AABB
-		float[] extents = new float[]{ result.extents.x, result.extents.y, result.extents.z };
-		int[] indices = new int[]{ 0, 1, 2 };
-		Array.Sort (extents, indices);
-		int longest = indices [2];
-		int secondLongest = indices [1];
-		int shortest = indices [0];
-
-		// now, depending on the number of rays, determine visibility points
-		if (nRays == 1) {
-			visibilityPoints.Add (result.center);
-		} else if (nRays == 2) { // two points, along the longest dimension of the AABBB
-
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
-			visibilityPoints.Add (p1);
-			Vector3 p2 = result.center;
-			p2 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
-			visibilityPoints.Add (p2);
-
-		} else if (nRays == 3) { // three points along the longest dimension of the AABB
-			visibilityPoints.Add (result.center);
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			visibilityPoints.Add (p1);
-			Vector3 p2 = result.center;
-			p2 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			visibilityPoints.Add (p2);
-
-		} else if (nRays == 4) { // 4 points inside AABB
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
-			p1 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			visibilityPoints.Add (p1);
-
-			Vector3 p2 = result.center;
-			p2 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
-			p2 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			visibilityPoints.Add (p2);
-
-			Vector3 p3 = result.center;
-			p3 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
-			p3 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			visibilityPoints.Add (p3);
-
-			Vector3 p4 = result.center;
-			p4 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
-			p4 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			visibilityPoints.Add (p4);
-		} else if (nRays == 5) { // 
-
-			visibilityPoints.Add (result.center);
-
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			//p1 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			visibilityPoints.Add (p1);
-
-			Vector3 p2 = result.center;
-			p2 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			//p2 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			visibilityPoints.Add (p2);
-
-			Vector3 p3 = result.center;
-			//p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p3 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			visibilityPoints.Add (p3);
-
-			Vector3 p4 = result.center;
-			//p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p4 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			visibilityPoints.Add (p4);
-		} else if (nRays == 6) {
-
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p1 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			p1 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
-			visibilityPoints.Add (p1);
-
-			Vector3 p2 = result.center;
-			p2 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			p2 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
-			visibilityPoints.Add (p2);
-
-			Vector3 p3 = result.center;
-			p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p3 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			p3 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
-			visibilityPoints.Add (p3);
-
-			Vector3 p4 = result.center;
-			p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p4 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			p4 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
-			visibilityPoints.Add (p4);
-
-			Vector3 p5 = result.center;
-			p5 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			p5 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
-			visibilityPoints.Add (p5);
-
-			Vector3 p6 = result.center;
-			p6 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p6 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			p6 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
-			visibilityPoints.Add (p6);
+		radius = boundingBox.extents.magnitude;
+	
+		return boundingBox;
+	}
 
 
-		} else if (nRays == 7) {
+	public void UpdateVisibilityInfo ( bool transformChanged ) {
 
-			visibilityPoints.Add (result.center);
+		actualVisibilityPoints.Clear ();
 
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p1 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p1 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
-			visibilityPoints.Add (p1);
+		// this should transform the chosen visibility points if there was some change in the target (e.g. some change of
+		// transformation 
 
-			Vector3 p2 = result.center;
-			p2 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p2 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
-			visibilityPoints.Add (p2);
+		// for the moment, let's suppose there are no changes
+		if (visibilityPointGeneration == VisibilityPointGenerationMethod.RANDOM ||
+		    visibilityPointGeneration == VisibilityPointGenerationMethod.ON_MESH) {
 
-			Vector3 p3 = result.center;
-			p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p3 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p3 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
-			visibilityPoints.Add (p3);
+			while (actualVisibilityPoints.Count < nRays) {
 
-			Vector3 p4 = result.center;
-			p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p4 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p4 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
-			visibilityPoints.Add (p4);
-
-			Vector3 p5 = result.center;
-			p5 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p5 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
-			visibilityPoints.Add (p5);
-
-			Vector3 p6 = result.center;
-			p6 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p6 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p6 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
-			visibilityPoints.Add (p6);
-
-		} else if (nRays == 8) {
-
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
-			p1 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			p1 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
-			visibilityPoints.Add (p1);
-
-			Vector3 p2 = result.center;
-			p2 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
-			p2 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			p2 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
-			visibilityPoints.Add (p2);
-
-			Vector3 p3 = result.center;
-			p3 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
-			p3 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			p3 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
-			visibilityPoints.Add (p3);
-
-			Vector3 p4 = result.center;
-			p4 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
-			p4 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			p4 [shortest] = 0.33f * result.min [shortest] + 0.66f * result.max [shortest];
-			visibilityPoints.Add (p4);
-
-			Vector3 p5 = result.center;
-			p5 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
-			p5 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			p5 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
-			visibilityPoints.Add (p5);
-
-			Vector3 p6 = result.center;
-			p6 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
-			p6 [secondLongest] = 0.33f * result.min [secondLongest] + 0.66f * result.max [secondLongest];
-			p6 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
-			visibilityPoints.Add (p6);
-
-			Vector3 p7 = result.center;
-			p7 [longest] = 0.66f * result.min [longest] + 0.33f * result.max [longest];
-			p7 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			p7 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
-			visibilityPoints.Add (p7);
-
-			Vector3 p8 = result.center;
-			p8 [longest] = 0.33f * result.min [longest] + 0.66f * result.max [longest];
-			p8 [secondLongest] = 0.66f * result.min [secondLongest] + 0.33f * result.max [secondLongest];
-			p8 [shortest] = 0.66f * result.min [shortest] + 0.33f * result.max [shortest];
-			visibilityPoints.Add (p8);
-
-		} else if (nRays == 9) {
-
-			visibilityPoints.Add (result.center);
-
-			Vector3 p1 = result.center;
-			p1 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p1 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p1 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
-			visibilityPoints.Add (p1);
-
-			Vector3 p2 = result.center;
-			p2 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p2 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p2 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
-			visibilityPoints.Add (p2);
-
-			Vector3 p3 = result.center;
-			p3 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p3 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p3 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
-			visibilityPoints.Add (p3);
-
-			Vector3 p4 = result.center;
-			p4 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p4 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p4 [shortest] = 0.25f * result.min [shortest] + 0.75f * result.max [shortest];
-			visibilityPoints.Add (p4);
-
-			Vector3 p5 = result.center;
-			p5 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p5 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p5 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
-			visibilityPoints.Add (p5);
-
-			Vector3 p6 = result.center;
-			p6 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p6 [secondLongest] = 0.25f * result.min [secondLongest] + 0.75f * result.max [secondLongest];
-			p6 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
-			visibilityPoints.Add (p6);
-
-			Vector3 p7 = result.center;
-			p7 [longest] = 0.75f * result.min [longest] + 0.25f * result.max [longest];
-			p7 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p7 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
-			visibilityPoints.Add (p7);
-
-			Vector3 p8 = result.center;
-			p8 [longest] = 0.25f * result.min [longest] + 0.75f * result.max [longest];
-			p8 [secondLongest] = 0.75f * result.min [secondLongest] + 0.25f * result.max [secondLongest];
-			p8 [shortest] = 0.75f * result.min [shortest] + 0.25f * result.max [shortest];
-			visibilityPoints.Add (p8);
+				actualVisibilityPoints.Add (visibilityPoints [UnityEngine.Random.Range (0, visibilityPoints.Count)]);
 
 
-		} else if (nRays > 9) {   // random distribution
-
-			visibilityPoints.Add (result.center);
-			// now add nRays -1 random points inside AABB to list
-			for (int i = 0; i<( nRays - 1); i++) {
-				visibilityPoints.Add (new Vector3 (UnityEngine.Random.Range (result.min.x, result.max.x),
-					UnityEngine.Random.Range (result.min.y, result.max.y),
-					UnityEngine.Random.Range (result.min.z, result.max.z)));
 			}
 
 		}
 
-		return (result);
 
 	}
-
 
 }
 

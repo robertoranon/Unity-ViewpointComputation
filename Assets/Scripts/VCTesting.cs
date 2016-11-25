@@ -31,6 +31,8 @@ public class VCTesting : MonoBehaviour
 
 	public float solverTime = 20.0f;
 
+	public float randomParticles = 0.0f;
+
 	public int visibilityRays = 6;
 
 	public bool doubleSidedVisibilityChecking = false;
@@ -38,6 +40,8 @@ public class VCTesting : MonoBehaviour
 	public bool randomRayCasts = false;
 
 	public bool debugMode = false;
+
+
 
 	// camera man
 	CLLookAtCameraMan camLibCam;
@@ -55,7 +59,7 @@ public class VCTesting : MonoBehaviour
 		// create main library objects: camera man, solver, problem bounds
 		camLibCam = new CLLookAtCameraMan ();	
 		psoSolver = new PSOSolver (6); // for 6 degrees of freedom VC problem
-		psoSolver.SetSolverParameters (20, 0.0f, new float[]{1.0f, 1.0f, 0.8f, 0.4f}); // number of particles, fraction of randomly initialized particles, c1, c2, w_init, w_end
+		psoSolver.SetSolverParameters (20, randomParticles, new float[]{1.0f, 1.0f, 0.8f, 0.4f}); // number of particles, fraction of randomly initialized particles, c1, c2, w_init, w_end
 		Camera unityCamera = GetComponentInParent<Camera> ();
 		camLibCam.unityCamera = unityCamera;
 		
@@ -95,9 +99,9 @@ public class VCTesting : MonoBehaviour
 			foreach (CLTarget t in camLibCam.targets) {
 
 				GameObject box = GameObject.CreatePrimitive (PrimitiveType.Cube);
-				box.name = t.gameObjectRef.name + "_AABB";
-				box.transform.position = t.targetAABB.center;
-				box.transform.localScale = t.targetAABB.size;
+				box.name = t.gameObject.name + "_AABB";
+				box.transform.position = t.boundingBox.center;
+				box.transform.localScale = t.boundingBox.size;
 				box.GetComponent<MeshRenderer> ().enabled = false;
 				box.layer = 2;
 				debugAABB.Add (box);
@@ -146,7 +150,7 @@ public class VCTesting : MonoBehaviour
 
 			if ((renderables.Count > 0) && (colliders.Count > 0)) {  
 
-				CLTarget target = new CLTarget (layerMask, targetobj, renderables, colliders , true,visibilityRays);
+				CLTarget target = new CLTarget (targetobj, renderables, colliders, layerMask, CLTarget.VisibilityPointGenerationMethod.UNIFORM_IN_BB, 6);
 				targets.Add ( target );
 
 				List<CLTarget> properties_targets = new List<CLTarget> ();
@@ -158,8 +162,6 @@ public class VCTesting : MonoBehaviour
 				CLSizeProperty sizeP = new CLSizeProperty (CLSizeProperty.SizeMode.AREA, targetobj.name + " size", properties_targets, sizeSatFuncCtrlX, sizeSatFuncCtrlY);
 				weights.Add (2.5f);
 				properties.Add (sizeP);
-
-
 
 				// orientation property (see from front) with w = 1.0
 				List<float> hORFuncCtrlX = new List<float> { -180.0f, -90f, 0.0f, 90f, 180.0f };
@@ -219,6 +221,7 @@ public class VCTesting : MonoBehaviour
 		for (int i=0; i<psoSolver.numberOfCandidates; i++) {
 			GameObject newView = new GameObject();
 			newView.AddComponent<Camera>();
+			newView.GetComponent<Camera> ().enabled = false;
 			viewpoints.Add (newView);
 			float[] position = new float[6];
 
@@ -245,6 +248,7 @@ public class VCTesting : MonoBehaviour
 		if (Input.GetKeyDown ("p")) {
 			InitVCProblem ();
 			ComputeAndShowCamera ();
+			DisplaySolutions (psoSolver.candidates, false);
 		}
 		
 		// evaluates current camera against current problem
@@ -300,7 +304,7 @@ public class VCTesting : MonoBehaviour
 			Debug.Log (distance);
 			Vector3 pos = camLibCam.targets [0].ComputeWorldPosFromSphericalCoordinates (distance, 0.99F*2*Mathf.PI, Mathf.PI/2);
 			camLibCam.unityCamera.transform.position = pos;
-			camLibCam.unityCamera.transform.LookAt (camLibCam.targets [0].targetAABB.center);
+			camLibCam.unityCamera.transform.LookAt (camLibCam.targets [0].boundingBox.center);
 
 		}
 
